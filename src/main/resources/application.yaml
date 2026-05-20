@@ -1,0 +1,54 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5433/baski_db
+    username: baski_user
+    password: baski_pass
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    open-in-view: false
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 100MB
+      max-request-size: 100MB
+
+server:
+  port: 8080
+
+jwt:
+  secret: ${JWT_SECRET:baski-gizli-anahtar-buraya-uzun-bir-deger-yazin-32-karakter}
+  expiration: 86400000
+
+r2:
+  endpoint: ${R2_ENDPOINT:https://YOUR_ACCOUNT_ID.r2.cloudflarestorage.com}
+  access-key: ${R2_ACCESS_KEY:your-access-key}
+  secret-key: ${R2_SECRET_KEY:your-secret-key}
+  bucket: ${R2_BUCKET:baski-dosyalari}
+  presigned-url-expiry: 900
+
+iyzico:
+  api-key: sandbox-5wlBpEeKKWxJ9fW1td7Ff9Xwsc2zhkd8
+  secret-key: sandbox-Jd5fCv5ypEmSSf0LoLdIjP2iBDQv7QDX
+  base-url: https://sandbox-api.iyzipay.com
+
+resend:
+  api-key: ${RESEND_API_KEY:re_test_key}
+  from-email: noreply@siteadi.com
+
+netgsm:
+  username: ${NETGSM_USERNAME:kullanici}
+  password: ${NETGSM_PASSWORD:sifre}
+  header: ${NETGSM_HEADER:BASKISIST}
+
+  sentry:
+    dsn: https://a78566bca3eb5308a89051775d830f01@o4511417135726593.ingest.de.sentry.io/4511417150799952
+    environment: development
+    traces-sample-rate: 1.0
+    send-default-pii: true
+

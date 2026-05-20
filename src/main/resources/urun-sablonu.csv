@@ -1,0 +1,13 @@
+urun_adi,kategori,birim,liste_fiyati,min_adet,aciklama,aktif
+Vinil Baskı,buyuk-format,m2,185,1,Yüksek kalite vinil baskı,1
+Branda Baskı,buyuk-format,m2,120,1,Dış mekan branda baskı,1
+Kartvizit 350g Mat,kartvizit,paket,180,250,350gr mat kartvizit,1
+Kartvizit 350g Parlak,kartvizit,paket,180,250,350gr parlak kartvizit,1
+Sticker Parlak,sticker,adet,8,10,Parlak yüzey sticker,1
+Sticker Mat,sticker,adet,8,10,Mat yüzey sticker,1
+Forex Tabela,tabela,m2,120,1,5mm forex tabela,1
+Alüminyum Tabela,tabela,m2,280,1,Alüminyum kompozit tabela,1
+A5 Broşür,brosur,paket,95,100,A5 çift taraflı broşür,1
+A4 Broşür,brosur,paket,150,100,A4 çift taraflı broşür,1
+Kupa Baskı,promosyon,adet,45,1,Beyaz kupa baskı,1
+Bez Çanta Baskı,promosyon,adet,35,10,Bez çanta tek taraf baskı,1
