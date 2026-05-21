@@ -21,6 +21,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -30,8 +31,6 @@ public class SecurityConfig {
     private final JwtFilter jwtFilter;
     private final RateLimitFilter rateLimitFilter;
     private final UserDetailsService userDetailsService;
-
-
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
@@ -59,8 +58,18 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**", "/api/health", "/api/webhook/**").permitAll()
+
+                        // References — GET herkese açık, yazma işlemleri admin/operator
+                        .requestMatchers(HttpMethod.GET,    "/api/references/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/settings/public").permitAll()
+                        .requestMatchers(HttpMethod.POST,   "/api/references/**").hasAnyRole("ADMIN", "OPERATOR")
+                        .requestMatchers(HttpMethod.PUT,    "/api/references/**").hasAnyRole("ADMIN", "OPERATOR")
+                        .requestMatchers(HttpMethod.PATCH,  "/api/references/**").hasAnyRole("ADMIN", "OPERATOR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/references/**").hasRole("ADMIN")
+
                         .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "OPERATOR")
                         .requestMatchers("/api/operator/**").hasAnyRole("OPERATOR", "ADMIN")
+
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

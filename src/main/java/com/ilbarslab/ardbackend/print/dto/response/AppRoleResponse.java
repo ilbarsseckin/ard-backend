@@ -5,14 +5,17 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Set;
+import java.util.UUID;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AuthResponse {
-    private String token;
-    private String email;
+public class AppRoleResponse {
+    private UUID id;
     private String name;
-    private String role;
-    private String id;
+    private String description;
+    private Boolean isActive;
+    private Set<PermissionResponse> permissions;
 }

@@ -129,6 +129,7 @@ public class ProductImportService {
                 try { minOrder = Integer.parseInt(minOrderStr.trim()); } catch (Exception ignored) {}
 
                 String description = row.getOrDefault("aciklama", "");
+                String imageUrl = row.getOrDefault("resim_url", "");
                 String activeStr = row.getOrDefault("aktif", "1");
                 boolean isActive = !"0".equals(activeStr.trim());
 
@@ -166,6 +167,7 @@ public class ProductImportService {
                     productType.setMinOrder(minOrder);
                     productType.setIsActive(isActive);
                     productType.setDescription(description);
+                    productType.setImageUrl(imageUrl.isBlank() ? null : imageUrl);
                     updated++;
                 } else {
                     productType = ProductType.builder()
@@ -177,6 +179,7 @@ public class ProductImportService {
                             .minOrder(minOrder)
                             .isActive(isActive)
                             .description(description)
+                            .imageUrl(imageUrl.isBlank() ? null : imageUrl)
                             .build();
                     imported++;
                 }

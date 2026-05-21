@@ -13,7 +13,6 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 public class ProductType {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -41,6 +40,8 @@ public class ProductType {
 
     @Builder.Default
     private Boolean isActive = true;
+
+    private String imageUrl;
 
     private String description;
 

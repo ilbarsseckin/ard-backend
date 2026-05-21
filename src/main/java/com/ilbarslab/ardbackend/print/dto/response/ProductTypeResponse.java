@@ -21,4 +21,6 @@ public class ProductTypeResponse {
     private Integer minOrder;
     private Boolean isActive;
     private String description;
+    private String imageUrl;
+
 }

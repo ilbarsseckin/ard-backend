@@ -51,6 +51,7 @@ public class ProductService {
                 .minOrder(p.getMinOrder())
                 .isActive(p.getIsActive())
                 .description(p.getDescription())
+                .imageUrl(p.getImageUrl())
                 .build();
     }
 }
