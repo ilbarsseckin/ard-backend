@@ -14,6 +14,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequ
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -55,5 +56,9 @@ public class StorageService {
 
         PresignedGetObjectRequest presignedRequest = s3Presigner.presignGetObject(presignRequest);
         return presignedRequest.url().toString();
+    }
+
+    public String uploadProductImage(String productId, MultipartFile file) throws IOException {
+        return uploadFile(file, "products");
     }
 }

@@ -15,9 +15,11 @@ public class ReferenceRequest {
     private String category;
 
     private String description;
+    private String logoUrl;        // dosya yüklenmediğinde URL ile logo
     private String color;
     private String abbr;
     private Boolean featured = false;
     private Boolean active = true;
+    private Boolean showText = true;
     private Integer displayOrder = 0;
 }

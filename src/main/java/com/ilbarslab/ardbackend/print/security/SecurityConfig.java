@@ -58,9 +58,23 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**", "/api/health", "/api/webhook/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/dealer/info").permitAll()
+                        // Ürünler — herkese açık (misafir fiyat görebilir, sipariş verebilir)
+                        .requestMatchers(HttpMethod.GET,  "/api/products/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/products/calculate-price").permitAll()
+                        .requestMatchers("/uploads/**").permitAll()
+                        .requestMatchers("/api/catalog/orders/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/catalog/**").permitAll()
+                        .requestMatchers("/api/hero-slides", "/api/hero-slides/**").permitAll()
+                        .requestMatchers("/api/catalog/pre-order-files/**").permitAll()
 
-                        // References — GET herkese açık, yazma işlemleri admin/operator
-                        .requestMatchers(HttpMethod.GET,    "/api/references/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/coupons/welcome").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/coupons/active").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/coupons/validate").permitAll()
+                        .requestMatchers("/api/admin/coupons/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        // References & settings — GET herkese açık
+                        .requestMatchers(HttpMethod.GET, "/api/references/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/settings/public").permitAll()
                         .requestMatchers(HttpMethod.POST,   "/api/references/**").hasAnyRole("ADMIN", "OPERATOR")
                         .requestMatchers(HttpMethod.PUT,    "/api/references/**").hasAnyRole("ADMIN", "OPERATOR")
@@ -70,6 +84,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "OPERATOR")
                         .requestMatchers("/api/operator/**").hasAnyRole("OPERATOR", "ADMIN")
 
+
+                        .requestMatchers("/api/admin/images/**").hasRole("ADMIN")
+
+                        // Sepet, sipariş, ödeme, profil — giriş gerekli
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

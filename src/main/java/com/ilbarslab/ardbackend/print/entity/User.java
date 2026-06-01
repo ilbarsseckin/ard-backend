@@ -16,6 +16,10 @@ import java.util.UUID;
 @AllArgsConstructor
 @Builder
 public class User {
+    private String googleId;          // ← bunu ekle
+
+    @Builder.Default
+    private Boolean emailVerified = false;  // ← bunu ekle
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

@@ -43,15 +43,19 @@ public class ReferenceController {
             @RequestParam("sector")   String sector,
             @RequestParam("category") String category,
             @RequestParam(value = "description",  required = false) String description,
+            @RequestParam(value = "logoUrl",      required = false) String logoUrl,
             @RequestParam(value = "color",        required = false) String color,
             @RequestParam(value = "abbr",         required = false) String abbr,
             @RequestParam(value = "featured",     required = false) String featured,
             @RequestParam(value = "active",       required = false) String active,
+            @RequestParam(value = "showText",     required = false) String showText,
             @RequestParam(value = "displayOrder", required = false) String displayOrder,
             @RequestParam(value = "logo",         required = false) MultipartFile logo) throws IOException {
 
         return ResponseEntity.ok(ApiResponse.ok("Referans eklendi",
-                referenceService.create(buildRequest(name, sector, category, description, color, abbr, featured, active, displayOrder), logo)));
+                referenceService.create(
+                        buildRequest(name, sector, category, description, logoUrl, color, abbr,
+                                featured, active, showText, displayOrder), logo)));
     }
 
     @PutMapping(value = "/{id}", consumes = "multipart/form-data")
@@ -62,15 +66,19 @@ public class ReferenceController {
             @RequestParam("sector")   String sector,
             @RequestParam("category") String category,
             @RequestParam(value = "description",  required = false) String description,
+            @RequestParam(value = "logoUrl",      required = false) String logoUrl,
             @RequestParam(value = "color",        required = false) String color,
             @RequestParam(value = "abbr",         required = false) String abbr,
             @RequestParam(value = "featured",     required = false) String featured,
             @RequestParam(value = "active",       required = false) String active,
+            @RequestParam(value = "showText",     required = false) String showText,
             @RequestParam(value = "displayOrder", required = false) String displayOrder,
             @RequestParam(value = "logo",         required = false) MultipartFile logo) throws IOException {
 
         return ResponseEntity.ok(ApiResponse.ok("Referans güncellendi",
-                referenceService.update(id, buildRequest(name, sector, category, description, color, abbr, featured, active, displayOrder), logo)));
+                referenceService.update(id,
+                        buildRequest(name, sector, category, description, logoUrl, color, abbr,
+                                featured, active, showText, displayOrder), logo)));
     }
 
     @PatchMapping("/{id}/toggle")
@@ -87,17 +95,21 @@ public class ReferenceController {
     }
 
     private ReferenceRequest buildRequest(String name, String sector, String category,
-                                          String description, String color, String abbr,
-                                          String featured, String active, String displayOrder) {
+                                          String description, String logoUrl,
+                                          String color, String abbr,
+                                          String featured, String active, String showText,
+                                          String displayOrder) {
         ReferenceRequest req = new ReferenceRequest();
         req.setName(name);
         req.setSector(sector);
         req.setCategory(category);
         req.setDescription(description);
+        req.setLogoUrl(logoUrl);
         req.setColor(color != null ? color : "#F4821F");
         req.setAbbr(abbr);
         req.setFeatured("true".equalsIgnoreCase(featured));
         req.setActive(!"false".equalsIgnoreCase(active));
+        req.setShowText(!"false".equalsIgnoreCase(showText));   // default true
         req.setDisplayOrder(displayOrder != null ? Integer.parseInt(displayOrder) : 0);
         return req;
     }

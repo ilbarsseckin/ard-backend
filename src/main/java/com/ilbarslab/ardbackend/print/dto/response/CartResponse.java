@@ -19,4 +19,5 @@ public class CartResponse {
     private BigDecimal subtotal;
     private int totalItems;
     private boolean hasWarnings;
+    private UUID addedItemId;
 }

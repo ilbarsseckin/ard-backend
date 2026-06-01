@@ -7,7 +7,9 @@ import com.ilbarslab.ardbackend.print.entity.ProductType;
 import com.ilbarslab.ardbackend.print.repository.PriceRuleRepository;
 import com.ilbarslab.ardbackend.print.repository.ProductTypeRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -20,58 +22,73 @@ public class PricingService {
 
     private final ProductTypeRepository productTypeRepository;
     private final PriceRuleRepository priceRuleRepository;
+    private final SystemSettingService settingService;
 
     public PriceCalculateResponse calculate(PriceCalculateRequest request) {
         ProductType product = productTypeRepository.findBySlug(request.getProductSlug())
-                .orElseThrow(() -> new RuntimeException("Ürün bulunamadı: " + request.getProductSlug()));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Ürün bulunamadı: " + request.getProductSlug()));
 
         List<PriceRule> rules = priceRuleRepository.findByProductTypeIdOrderByMinQtyAsc(product.getId());
+        BigDecimal usdRate = getUsdRate();
 
         return switch (product.getPricingModel()) {
-            case "AREA_BASED" -> calculateAreaBased(product, rules, request);
-            case "PACKAGE" -> calculatePackage(product, rules, request);
-            case "TIERED_QUANTITY" -> calculateTiered(product, rules, request);
-            case "UNIT" -> calculateUnit(product, rules, request);
-            default -> throw new RuntimeException("Bilinmeyen fiyat modeli: " + product.getPricingModel());
+            case "AREA_BASED" -> calculateAreaBased(product, rules, request, usdRate);
+            case "PACKAGE" -> calculatePackage(product, rules, request, usdRate);
+            case "TIERED_QUANTITY" -> calculateTiered(product, rules, request, usdRate);
+            case "UNIT" -> calculateUnit(product, rules, request, usdRate);
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Bilinmeyen fiyat modeli: " + product.getPricingModel());
         };
     }
 
-    // Alan bazlı: vinil, branda, tabela
+    private BigDecimal getUsdRate() {
+        Double rate = settingService.getDouble("usd_kur", 45.0);
+        return BigDecimal.valueOf(rate);
+    }
+
+    // Alan bazlı — basePrice = USD/m²
     private PriceCalculateResponse calculateAreaBased(ProductType product,
-                                                       List<PriceRule> rules,
-                                                       PriceCalculateRequest request) {
+                                                      List<PriceRule> rules,
+                                                      PriceCalculateRequest request,
+                                                      BigDecimal usdRate) {
         if (request.getWidthCm() == null || request.getHeightCm() == null) {
-            throw new RuntimeException("Alan bazlı ürünler için en ve boy zorunludur");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Alan bazlı ürünler için en ve boy zorunludur");
         }
 
         double areaMq = (request.getWidthCm() * request.getHeightCm()) / 10000.0;
-        if (areaMq < 0.1) areaMq = 0.1; // minimum alan
+        if (areaMq < 0.1) areaMq = 0.1;
 
         PriceRule baseRule = rules.stream()
-                .filter(r -> "AREA_BASED".equals(r.getRuleType()))
+                .filter(r -> "AREA_BASED".equals(r.getRuleType()) && r.getOptionKey() == null)
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("Fiyat kuralı bulunamadı"));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Fiyat kuralı bulunamadı"));
 
-        BigDecimal basePrice = baseRule.getBasePrice();
+        BigDecimal usdPerM2 = baseRule.getBasePrice();
         BigDecimal multiplier = BigDecimal.ONE;
-
-        // Ek seçenek çarpanları (çift yüz, laminasyon vb.)
         if (request.getOptions() != null) {
             multiplier = applyOptionMultipliers(rules, request.getOptions(), multiplier);
         }
 
         BigDecimal areaBD = BigDecimal.valueOf(areaMq).setScale(4, RoundingMode.HALF_UP);
-        BigDecimal unitPrice = basePrice.multiply(areaBD).multiply(multiplier).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal totalPrice = unitPrice.multiply(BigDecimal.valueOf(request.getQuantity())).setScale(2, RoundingMode.HALF_UP);
+        // USD birim fiyat = $/m² × m² × multiplier
+        BigDecimal usdUnit = usdPerM2.multiply(areaBD).multiply(multiplier);
+        // TL'ye çevir
+        BigDecimal unitPriceTl = usdUnit.multiply(usdRate).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalPriceTl = unitPriceTl.multiply(BigDecimal.valueOf(request.getQuantity()))
+                .setScale(2, RoundingMode.HALF_UP);
 
-        String breakdown = String.format("%.2f m² × ₺%.2f/m² × %d adet", areaMq, basePrice, request.getQuantity());
+        String breakdown = String.format("%.2f m² × $%.2f/m² × %d adet × ₺%.2f kur",
+                areaMq, usdPerM2, request.getQuantity(), usdRate);
 
         return PriceCalculateResponse.builder()
                 .productSlug(product.getSlug())
                 .productName(product.getName())
                 .quantity(request.getQuantity())
-                .unitPrice(unitPrice)
-                .totalPrice(totalPrice)
+                .unitPrice(unitPriceTl)
+                .totalPrice(totalPriceTl)
                 .priceBreakdown(breakdown)
                 .widthCm(request.getWidthCm())
                 .heightCm(request.getHeightCm())
@@ -79,92 +96,105 @@ public class PricingService {
                 .build();
     }
 
-    // Paket bazlı: kartvizit, broşür
+    // Paket — unitPrice = USD/paket (toplam fiyat)
     private PriceCalculateResponse calculatePackage(ProductType product,
-                                                     List<PriceRule> rules,
-                                                     PriceCalculateRequest request) {
+                                                    List<PriceRule> rules,
+                                                    PriceCalculateRequest request,
+                                                    BigDecimal usdRate) {
         PriceRule matchedRule = rules.stream()
-                .filter(r -> "PACKAGE".equals(r.getRuleType()))
+                .filter(r -> "PACKAGE".equals(r.getRuleType()) && r.getOptionKey() == null)
                 .filter(r -> r.getMinQty() != null && r.getMinQty() <= request.getQuantity())
                 .filter(r -> r.getMaxQty() == null || r.getMaxQty() >= request.getQuantity())
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("Bu adet için paket bulunamadı"));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Bu adet için paket bulunamadı"));
 
-        BigDecimal basePrice = matchedRule.getUnitPrice();
-        BigDecimal delta = BigDecimal.ZERO;
-
+        BigDecimal usdPackage = matchedRule.getUnitPrice();
+        BigDecimal usdDelta = BigDecimal.ZERO;
         if (request.getOptions() != null) {
-            delta = applyOptionDeltas(rules, request.getOptions());
+            usdDelta = applyOptionDeltas(rules, request.getOptions());
         }
 
-        BigDecimal totalPrice = basePrice.add(delta).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal unitPrice = totalPrice.divide(BigDecimal.valueOf(request.getQuantity()), 4, RoundingMode.HALF_UP);
+        BigDecimal usdTotal = usdPackage.add(usdDelta);
+        BigDecimal totalPriceTl = usdTotal.multiply(usdRate).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal unitPriceTl = totalPriceTl
+                .divide(BigDecimal.valueOf(request.getQuantity()), 4, RoundingMode.HALF_UP);
 
-        String breakdown = String.format("%d adet paket: ₺%.2f", request.getQuantity(), basePrice);
+        String breakdown = String.format("%d adet paket: $%.2f × ₺%.2f kur",
+                request.getQuantity(), usdPackage, usdRate);
 
         return PriceCalculateResponse.builder()
                 .productSlug(product.getSlug())
                 .productName(product.getName())
                 .quantity(request.getQuantity())
-                .unitPrice(unitPrice)
-                .totalPrice(totalPrice)
+                .unitPrice(unitPriceTl)
+                .totalPrice(totalPriceTl)
                 .priceBreakdown(breakdown)
                 .build();
     }
 
-    // Kırılımlı adet: sticker, etiket
+    // Kademeli adet — unitPrice = USD/adet (kademeye göre)
     private PriceCalculateResponse calculateTiered(ProductType product,
-                                                    List<PriceRule> rules,
-                                                    PriceCalculateRequest request) {
+                                                   List<PriceRule> rules,
+                                                   PriceCalculateRequest request,
+                                                   BigDecimal usdRate) {
         PriceRule matchedRule = rules.stream()
-                .filter(r -> "TIERED_QUANTITY".equals(r.getRuleType()))
+                .filter(r -> "TIERED_QUANTITY".equals(r.getRuleType()) && r.getOptionKey() == null)
                 .filter(r -> r.getMinQty() != null && r.getMinQty() <= request.getQuantity())
                 .filter(r -> r.getMaxQty() == null || r.getMaxQty() >= request.getQuantity())
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("Bu adet için fiyat kırılımı bulunamadı"));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Bu adet için fiyat baremi bulunamadı"));
 
-        BigDecimal unitPrice = matchedRule.getUnitPrice();
+        BigDecimal usdUnit = matchedRule.getUnitPrice();
         BigDecimal multiplier = BigDecimal.ONE;
-
         if (request.getOptions() != null) {
             multiplier = applyOptionMultipliers(rules, request.getOptions(), multiplier);
         }
 
-        BigDecimal effectiveUnit = unitPrice.multiply(multiplier).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal totalPrice = effectiveUnit.multiply(BigDecimal.valueOf(request.getQuantity())).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal usdEffective = usdUnit.multiply(multiplier);
+        BigDecimal unitPriceTl = usdEffective.multiply(usdRate).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalPriceTl = unitPriceTl.multiply(BigDecimal.valueOf(request.getQuantity()))
+                .setScale(2, RoundingMode.HALF_UP);
 
-        String breakdown = String.format("%d adet × ₺%.2f/adet", request.getQuantity(), effectiveUnit);
+        String breakdown = String.format("%d adet × $%.2f/adet × ₺%.2f kur",
+                request.getQuantity(), usdEffective, usdRate);
 
         return PriceCalculateResponse.builder()
                 .productSlug(product.getSlug())
                 .productName(product.getName())
                 .quantity(request.getQuantity())
-                .unitPrice(effectiveUnit)
-                .totalPrice(totalPrice)
+                .unitPrice(unitPriceTl)
+                .totalPrice(totalPriceTl)
                 .priceBreakdown(breakdown)
                 .build();
     }
 
-    // Birim bazlı: kupa, kalem, promosyon
+    // Birim — unitPrice = USD/adet (sabit)
     private PriceCalculateResponse calculateUnit(ProductType product,
-                                                  List<PriceRule> rules,
-                                                  PriceCalculateRequest request) {
+                                                 List<PriceRule> rules,
+                                                 PriceCalculateRequest request,
+                                                 BigDecimal usdRate) {
         PriceRule baseRule = rules.stream()
-                .filter(r -> "UNIT".equals(r.getRuleType()))
+                .filter(r -> "UNIT".equals(r.getRuleType()) && r.getOptionKey() == null)
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("Fiyat kuralı bulunamadı"));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Fiyat kuralı bulunamadı"));
 
-        BigDecimal unitPrice = baseRule.getUnitPrice();
-        BigDecimal totalPrice = unitPrice.multiply(BigDecimal.valueOf(request.getQuantity())).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal usdUnit = baseRule.getUnitPrice();
+        BigDecimal unitPriceTl = usdUnit.multiply(usdRate).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalPriceTl = unitPriceTl.multiply(BigDecimal.valueOf(request.getQuantity()))
+                .setScale(2, RoundingMode.HALF_UP);
 
-        String breakdown = String.format("%d adet × ₺%.2f/adet", request.getQuantity(), unitPrice);
+        String breakdown = String.format("%d adet × $%.2f/adet × ₺%.2f kur",
+                request.getQuantity(), usdUnit, usdRate);
 
         return PriceCalculateResponse.builder()
                 .productSlug(product.getSlug())
                 .productName(product.getName())
                 .quantity(request.getQuantity())
-                .unitPrice(unitPrice)
-                .totalPrice(totalPrice)
+                .unitPrice(unitPriceTl)
+                .totalPrice(totalPriceTl)
                 .priceBreakdown(breakdown)
                 .build();
     }

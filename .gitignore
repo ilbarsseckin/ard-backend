@@ -38,4 +38,17 @@ target/
 .env.local
 .idea/
 *.iml
-application-prod.yaml
+application-prod.yaml 
+# Uploaded files (customer designs, brand logos, product images) 
+uploads/ 
+
+# Ge‡ici/junk dosyalar
+src.rar
+*.rar
+*.zip
+*.7z
+body-*.json
+update-*.json
+curl
+docker
+/git

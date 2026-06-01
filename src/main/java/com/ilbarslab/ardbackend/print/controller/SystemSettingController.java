@@ -16,13 +16,12 @@ public class SystemSettingController {
 
     private final SystemSettingService settingService;
 
-    // Public — hesaplama robotu için kur bilgisi
     @GetMapping("/public")
     public ResponseEntity<ApiResponse<Map<String, String>>> getPublic() {
         Map<String, String> all = settingService.getAll();
-        // Sadece public keyleri dön
         Map<String, String> pub = new java.util.HashMap<>();
         pub.put("usd_kur", all.getOrDefault("usd_kur", "45"));
+        pub.put("references_show_text", all.getOrDefault("references_show_text", "true"));
         return ResponseEntity.ok(ApiResponse.ok(pub));
     }
 
@@ -37,10 +36,11 @@ public class SystemSettingController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> save(@RequestBody Map<String, String> settings) {
         Map<String, String> descriptions = Map.of(
-            "usd_kur", "USD/TL Döviz Kuru"
+                "usd_kur", "USD/TL Döviz Kuru",
+                "references_show_text", "Referans yazılarını göster (true/false)"
         );
         settings.forEach((key, value) ->
-            settingService.set(key, value, descriptions.getOrDefault(key, key))
+                settingService.set(key, value, descriptions.getOrDefault(key, key))
         );
         return ResponseEntity.ok(ApiResponse.ok("Ayarlar kaydedildi", null));
     }

@@ -6,6 +6,7 @@ import com.ilbarslab.ardbackend.print.dto.response.ImportResultResponse;
 import com.ilbarslab.ardbackend.print.dto.response.ProductTypeResponse;
 import com.ilbarslab.ardbackend.print.service.ProductImportService;
 import com.ilbarslab.ardbackend.print.service.ProductService;
+import com.ilbarslab.ardbackend.print.service.StorageService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -25,10 +26,47 @@ public class AdminProductController {
 
     private final ProductService productService;
     private final ProductImportService productImportService;
+    private final StorageService storageService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<ProductTypeResponse>>> getAll() {
         return ResponseEntity.ok(ApiResponse.ok(productService.getAll()));
+    }
+
+    @PostMapping
+    public ResponseEntity<ApiResponse<ProductTypeResponse>> create(
+            @RequestBody Map<String, Object> body) {
+        ProductTypeResponse created = productService.create(body);
+        return ResponseEntity.ok(ApiResponse.ok("Ürün eklendi", created));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<ProductTypeResponse>> update(
+            @PathVariable UUID id,
+            @RequestBody Map<String, Object> body) {
+        ProductTypeResponse updated = productService.update(id, body);
+        return ResponseEntity.ok(ApiResponse.ok("Ürün güncellendi", updated));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
+        productService.delete(id);
+        return ResponseEntity.ok(ApiResponse.ok("Ürün silindi", null));
+    }
+
+    // Ürün resmi yükle
+    @PostMapping("/{id}/image")
+    public ResponseEntity<ApiResponse<String>> uploadImage(
+            @PathVariable UUID id,
+            @RequestParam("file") MultipartFile file) {
+        try {
+            String imageUrl = storageService.uploadProductImage(id.toString(), file);
+            productService.updateImageUrl(id, imageUrl);
+            return ResponseEntity.ok(ApiResponse.ok("Resim yüklendi", imageUrl));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("Resim yüklenemedi: " + e.getMessage()));
+        }
     }
 
     @PostMapping("/import")

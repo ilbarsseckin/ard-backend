@@ -1,5 +1,5 @@
 package com.ilbarslab.ardbackend.print.entity.enums;
 
 public enum Role {
-    CUSTOMER, OPERATOR, ADMIN
+    CUSTOMER, DEALER, OPERATOR, ADMIN
 }

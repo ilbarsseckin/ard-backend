@@ -41,6 +41,8 @@ iyzico:
   api-key: sandbox-5wlBpEeKKWxJ9fW1td7Ff9Xwsc2zhkd8
   secret-key: sandbox-Jd5fCv5ypEmSSf0LoLdIjP2iBDQv7QDX
   base-url: https://sandbox-api.iyzipay.com
+  app:frontend-url=${FRONTEND_URL:http://localhost:3000}:
+
 
 resend:
   api-key: ${RESEND_API_KEY:re_test_key}
@@ -58,4 +60,13 @@ netgsm:
     send-default-pii: true
 
 
+google:
+  client-id: ${GOOGLE_CLIENT_ID:}
+  client-secret: ${GOOGLE_CLIENT_SECRET:}
 
+
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+      enabled: true

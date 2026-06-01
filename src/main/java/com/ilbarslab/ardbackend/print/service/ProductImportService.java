@@ -187,17 +187,25 @@ public class ProductImportService {
                 productTypeRepository.save(productType);
 
                 // Temel fiyat kuralı oluştur/güncelle
-                List<PriceRule> existingRules = priceRuleRepository.findByProductTypeIdOrderByMinQtyAsc(productType.getId());
-                if (existingRules.isEmpty()) {
-                    PriceRule rule = PriceRule.builder()
-                            .productType(productType)
-                            .ruleType(pricingModel)
-                            .basePrice("AREA_BASED".equals(pricingModel) ? price : null)
-                            .unitPrice(!"AREA_BASED".equals(pricingModel) ? price : null)
-                            .minQty(minOrder)
-                            .build();
-                    priceRuleRepository.save(rule);
-                }
+                // Temel fiyat kuralını upsert et (option'sız, baz kural)
+                List<PriceRule> existingRules = priceRuleRepository
+                        .findByProductTypeIdOrderByMinQtyAsc(productType.getId());
+
+                boolean isArea = "AREA_BASED".equals(pricingModel);
+                PriceRule rule = existingRules.stream()
+                        .filter(r -> r.getOptionKey() == null
+                                && pricingModel.equals(r.getRuleType()))
+                        .findFirst()
+                        .orElse(PriceRule.builder()
+                                .productType(productType)
+                                .ruleType(pricingModel)
+                                .minQty(minOrder)
+                                .build());
+
+                rule.setBasePrice(isArea ? price : null);
+                rule.setUnitPrice(!isArea ? price : null);
+                if (rule.getMinQty() == null) rule.setMinQty(minOrder);
+                priceRuleRepository.save(rule);
 
             } catch (Exception e) {
                 errors++;

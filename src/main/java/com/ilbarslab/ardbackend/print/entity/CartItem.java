@@ -2,9 +2,10 @@ package com.ilbarslab.ardbackend.print.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.math.BigDecimal;
-import java.util.Map;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
@@ -57,4 +58,8 @@ public class CartItem {
     private Integer declaredPrints = 1;
 
     private String priceBreakdown;
+
+    @CreationTimestamp
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
 }

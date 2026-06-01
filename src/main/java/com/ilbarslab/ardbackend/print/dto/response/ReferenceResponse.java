@@ -17,5 +17,6 @@ public class ReferenceResponse {
     private String abbr;
     private Boolean featured;
     private Boolean active;
+    private Boolean showText;
     private Integer displayOrder;
 }

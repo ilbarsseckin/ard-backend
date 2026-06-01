@@ -8,6 +8,7 @@ import com.ilbarslab.ardbackend.print.service.WebhookService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -23,7 +24,9 @@ public class PaymentController {
     private final IyzicoService iyzicoService;
     private final WebhookService webhookService;
 
-    // Ödeme başlat
+    @Value("${app.frontend-url:http://localhost:3000}")
+    private String frontendUrl;
+
     @PostMapping("/api/payments/initiate")
     public ResponseEntity<ApiResponse<PaymentResponse>> initiatePayment(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -37,7 +40,6 @@ public class PaymentController {
         }
     }
 
-    // 3D Secure callback — iyzico buraya POST atar
     @PostMapping("/api/webhook/payment/callback")
     public ResponseEntity<String> paymentCallback(
             @RequestParam(required = false) String paymentId,
@@ -49,11 +51,12 @@ public class PaymentController {
 
         String result = webhookService.handle3dsCallback(paymentId, conversationId, status);
 
-        // Frontend'e yönlendir
-        if ("success".equals(result)) {
-            return ResponseEntity.ok("<html><body><script>window.location='http://localhost:3000/order/success'</script></body></html>");
-        } else {
-            return ResponseEntity.ok("<html><body><script>window.location='http://localhost:3000/order/failed'</script></body></html>");
-        }
+        String redirectUrl = "success".equals(result)
+                ? frontendUrl + "/order/success?siparisId=" + conversationId
+                : frontendUrl + "/order/failed?siparisId=" + conversationId;
+
+        return ResponseEntity.ok(
+                "<html><body><script>window.location='" + redirectUrl + "'</script></body></html>"
+        );
     }
 }

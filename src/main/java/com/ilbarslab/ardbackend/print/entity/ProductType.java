@@ -3,6 +3,7 @@ package com.ilbarslab.ardbackend.print.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
@@ -54,4 +55,13 @@ public class ProductType {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private List<ProductConfig> configs;
+
+    @Builder.Default
+    private Boolean featured = false;
+
+    // Kampanya etiketi (örn. "FLASH KAMPANYA", "YENİ", "TÜKENMEK ÜZERE")
+    private String badge;
+
+    // Eski fiyat (USD) — doluysa indirim göstergesi olarak işler
+    private BigDecimal originalPrice;
 }

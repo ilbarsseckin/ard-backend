@@ -46,4 +46,7 @@ public class Reference {
 
     @Builder.Default
     private Integer displayOrder = 0;
+
+    @Builder.Default
+    private Boolean showText = true;
 }
