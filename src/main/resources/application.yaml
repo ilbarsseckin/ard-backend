@@ -2,8 +2,9 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5433/baski_db
     username: baski_user
-    password: baski_pass
+    password: ${DB_PASS:baski_pass}
     driver-class-name: org.postgresql.Driver
+    
   jpa:
     hibernate:
       ddl-auto: update
@@ -37,9 +38,10 @@ r2:
   bucket: ${R2_BUCKET:baski-dosyalari}
   presigned-url-expiry: 900
 
+
 iyzico:
-  api-key: sandbox-5wlBpEeKKWxJ9fW1td7Ff9Xwsc2zhkd8
-  secret-key: sandbox-Jd5fCv5ypEmSSf0LoLdIjP2iBDQv7QDX
+  api-key: ${IYZICO_API_KEY:sandbox-placeholder}
+  secret-key: ${IYZICO_SECRET_KEY:sandbox-placeholder}
   base-url: https://sandbox-api.iyzipay.com
   app:frontend-url=${FRONTEND_URL:http://localhost:3000}:
 

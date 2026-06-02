@@ -408,8 +408,15 @@ public class CatalogProductService {
     }
 
     private List<CatalogProductAttributeBlock> buildAttributeBlocks(CatalogProduct p) {
-        List<CatalogAttribute> attrs = attributeRepo
-                .findByCategoryIdOrderBySortOrderAsc(p.getCategory().getId());
+        UUID catId = p.getCategory().getId();
+        List<CatalogAttribute> attrs = attributeRepo.findByCategoryIdOrderBySortOrderAsc(catId);
+
+        // Üst kategori fallback: alt kategoride öznitelik yoksa üst kategoriye bak
+        if (attrs.isEmpty() && p.getCategory().getParent() != null) {
+            attrs = attributeRepo.findByCategoryIdOrderBySortOrderAsc(
+                    p.getCategory().getParent().getId());
+        }
+
         List<CatalogProductAttributeValue> pavs = pavRepo.findByProductId(p.getId());
 
         Map<UUID, List<CatalogAttributeOption>> optionsByAttr = new HashMap<>();

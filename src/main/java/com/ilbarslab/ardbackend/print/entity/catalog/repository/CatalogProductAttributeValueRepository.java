@@ -8,7 +8,10 @@ public interface CatalogProductAttributeValueRepository extends JpaRepository<Ca
     List<CatalogProductAttributeValue> findByProductId(UUID productId);
     void deleteByProductId(UUID productId);
 
-    // Faz 3 — silme öncesi kullanım kontrolü için
+    void deleteByAttributeId(UUID attributeId);
+    void deleteByOptionId(UUID optionId);
+
+    // kullanım kontrolü için
     long countByAttributeId(UUID attributeId);
     long countByOptionId(UUID optionId);
 }

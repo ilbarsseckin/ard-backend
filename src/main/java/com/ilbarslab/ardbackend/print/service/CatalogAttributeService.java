@@ -37,15 +37,23 @@ public class CatalogAttributeService {
         if (!categoryRepo.existsById(categoryId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Kategori bulunamadı");
         }
-        return attributeRepo.findByCategoryIdOrderBySortOrderAsc(categoryId).stream()
-            .map(this::toAttributeResponse)
-            .toList();
+        List<CatalogAttribute> attrs = attributeRepo.findByCategoryIdOrderBySortOrderAsc(categoryId);
+
+        // Üst kategori fallback: alt kategoride öznitelik yoksa üst kategoriye bak
+        if (attrs.isEmpty()) {
+            CatalogCategory cat = categoryRepo.findById(categoryId).orElse(null);
+            if (cat != null && cat.getParent() != null) {
+                attrs = attributeRepo.findByCategoryIdOrderBySortOrderAsc(cat.getParent().getId());
+            }
+        }
+
+        return attrs.stream().map(this::toAttributeResponse).toList();
     }
 
     @Transactional
     public CatalogAttributeResponse createAttribute(UUID categoryId, Map<String, Object> body) {
         CatalogCategory cat = categoryRepo.findById(categoryId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Kategori bulunamadı"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Kategori bulunamadı"));
 
         String attrKey = asString(body.get("attrKey"));
         String label = asString(body.get("label"));
@@ -60,26 +68,26 @@ public class CatalogAttributeService {
 
         // Aynı kategoride aynı key var mı?
         boolean duplicate = attributeRepo.findByCategoryIdOrderBySortOrderAsc(categoryId).stream()
-            .anyMatch(a -> a.getAttrKey().equals(attrKey));
+                .anyMatch(a -> a.getAttrKey().equals(attrKey));
         if (duplicate) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "Bu kategoride aynı anahtarla bir öznitelik zaten var: " + attrKey);
+                    "Bu kategoride aynı anahtarla bir öznitelik zaten var: " + attrKey);
         }
 
         String inputType = asString(body.getOrDefault("inputType", "select"));
         if (!VALID_INPUT_TYPES.contains(inputType)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "Geçersiz inputType. Geçerli olanlar: " + VALID_INPUT_TYPES);
+                    "Geçersiz inputType. Geçerli olanlar: " + VALID_INPUT_TYPES);
         }
 
         CatalogAttribute attr = CatalogAttribute.builder()
-            .category(cat)
-            .attrKey(attrKey)
-            .label(label)
-            .inputType(inputType)
-            .required(asBoolean(body.get("required"), false))
-            .sortOrder(asInt(body.get("sortOrder"), 0))
-            .build();
+                .category(cat)
+                .attrKey(attrKey)
+                .label(label)
+                .inputType(inputType)
+                .required(asBoolean(body.get("required"), false))
+                .sortOrder(asInt(body.get("sortOrder"), 0))
+                .build();
 
         attr = attributeRepo.save(attr);
         log.info("Öznitelik oluşturuldu: {} ({}) kategori={}", label, attrKey, cat.getName());
@@ -89,17 +97,17 @@ public class CatalogAttributeService {
     @Transactional
     public CatalogAttributeResponse updateAttribute(UUID id, Map<String, Object> body) {
         CatalogAttribute attr = attributeRepo.findById(id)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Öznitelik bulunamadı"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Öznitelik bulunamadı"));
 
         if (body.containsKey("attrKey")) {
             String newKey = asString(body.get("attrKey"));
             if (newKey != null && !newKey.equals(attr.getAttrKey())) {
                 validateAttrKey(newKey);
                 boolean duplicate = attributeRepo.findByCategoryIdOrderBySortOrderAsc(attr.getCategory().getId()).stream()
-                    .anyMatch(a -> !a.getId().equals(id) && a.getAttrKey().equals(newKey));
+                        .anyMatch(a -> !a.getId().equals(id) && a.getAttrKey().equals(newKey));
                 if (duplicate) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Bu kategoride aynı anahtarla bir öznitelik zaten var: " + newKey);
+                            "Bu kategoride aynı anahtarla bir öznitelik zaten var: " + newKey);
                 }
                 attr.setAttrKey(newKey);
             }
@@ -122,13 +130,13 @@ public class CatalogAttributeService {
     @Transactional
     public void deleteAttribute(UUID id) {
         CatalogAttribute attr = attributeRepo.findById(id)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Öznitelik bulunamadı"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Öznitelik bulunamadı"));
 
         // Bir ürün tarafından kullanılıyorsa silinemez
         long usageCount = pavRepo.countByAttributeId(id);
         if (usageCount > 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "Bu öznitelik " + usageCount + " ürün tarafından kullanılıyor, silinemez");
+                    "Bu öznitelik " + usageCount + " ürün tarafından kullanılıyor, silinemez");
         }
 
         // Seçenekleri de sil
@@ -142,7 +150,7 @@ public class CatalogAttributeService {
     @Transactional
     public CatalogAttributeOptionResponse createOption(UUID attributeId, Map<String, Object> body) {
         CatalogAttribute attr = attributeRepo.findById(attributeId)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Öznitelik bulunamadı"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Öznitelik bulunamadı"));
 
         String value = asString(body.get("value"));
         if (value == null || value.isBlank()) {
@@ -150,11 +158,11 @@ public class CatalogAttributeService {
         }
 
         CatalogAttributeOption opt = CatalogAttributeOption.builder()
-            .attribute(attr)
-            .value(value)
-            .colorHex(asString(body.get("colorHex")))
-            .sortOrder(asInt(body.get("sortOrder"), 0))
-            .build();
+                .attribute(attr)
+                .value(value)
+                .colorHex(asString(body.get("colorHex")))
+                .sortOrder(asInt(body.get("sortOrder"), 0))
+                .build();
 
         opt = optionRepo.save(opt);
         return toOptionResponse(opt);
@@ -163,7 +171,7 @@ public class CatalogAttributeService {
     @Transactional
     public CatalogAttributeOptionResponse updateOption(UUID id, Map<String, Object> body) {
         CatalogAttributeOption opt = optionRepo.findById(id)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Seçenek bulunamadı"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Seçenek bulunamadı"));
 
         if (body.containsKey("value"))     opt.setValue(asString(body.get("value")));
         if (body.containsKey("colorHex"))  opt.setColorHex(asString(body.get("colorHex")));
@@ -176,12 +184,12 @@ public class CatalogAttributeService {
     @Transactional
     public void deleteOption(UUID id) {
         CatalogAttributeOption opt = optionRepo.findById(id)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Seçenek bulunamadı"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Seçenek bulunamadı"));
 
         long usageCount = pavRepo.countByOptionId(id);
         if (usageCount > 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "Bu seçenek " + usageCount + " ürün tarafından kullanılıyor, silinemez");
+                    "Bu seçenek " + usageCount + " ürün tarafından kullanılıyor, silinemez");
         }
 
         optionRepo.delete(opt);
@@ -192,36 +200,36 @@ public class CatalogAttributeService {
     private void validateAttrKey(String key) {
         if (!key.matches("[a-z][a-z0-9_]*")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                "Anahtar küçük harfle başlamalı, sadece küçük harf, rakam ve alt çizgi içerebilir (örn: kartus_rengi)");
+                    "Anahtar küçük harfle başlamalı, sadece küçük harf, rakam ve alt çizgi içerebilir (örn: kartus_rengi)");
         }
     }
 
     private CatalogAttributeResponse toAttributeResponse(CatalogAttribute a) {
         List<CatalogAttributeOptionResponse> options = optionRepo
-            .findByAttributeIdOrderBySortOrderAsc(a.getId()).stream()
-            .map(this::toOptionResponse)
-            .toList();
+                .findByAttributeIdOrderBySortOrderAsc(a.getId()).stream()
+                .map(this::toOptionResponse)
+                .toList();
 
         return CatalogAttributeResponse.builder()
-            .id(a.getId())
-            .categoryId(a.getCategory().getId())
-            .attrKey(a.getAttrKey())
-            .label(a.getLabel())
-            .inputType(a.getInputType())
-            .required(a.getRequired())
-            .sortOrder(a.getSortOrder())
-            .options(options)
-            .build();
+                .id(a.getId())
+                .categoryId(a.getCategory().getId())
+                .attrKey(a.getAttrKey())
+                .label(a.getLabel())
+                .inputType(a.getInputType())
+                .required(a.getRequired())
+                .sortOrder(a.getSortOrder())
+                .options(options)
+                .build();
     }
 
     private CatalogAttributeOptionResponse toOptionResponse(CatalogAttributeOption o) {
         return CatalogAttributeOptionResponse.builder()
-            .id(o.getId())
-            .attributeId(o.getAttribute().getId())
-            .value(o.getValue())
-            .colorHex(o.getColorHex())
-            .sortOrder(o.getSortOrder())
-            .build();
+                .id(o.getId())
+                .attributeId(o.getAttribute().getId())
+                .value(o.getValue())
+                .colorHex(o.getColorHex())
+                .sortOrder(o.getSortOrder())
+                .build();
     }
 
     private static String asString(Object v) {

@@ -2,8 +2,12 @@ package com.ilbarslab.ardbackend.print.service;
 
 
 import com.ilbarslab.ardbackend.print.dto.response.CatalogCategoryResponse;
+import com.ilbarslab.ardbackend.print.entity.catalog.entity.CatalogAttribute;
 import com.ilbarslab.ardbackend.print.entity.catalog.entity.CatalogCategory;
+import com.ilbarslab.ardbackend.print.entity.catalog.repository.CatalogAttributeOptionRepository;
+import com.ilbarslab.ardbackend.print.entity.catalog.repository.CatalogAttributeRepository;
 import com.ilbarslab.ardbackend.print.entity.catalog.repository.CatalogCategoryRepository;
+import com.ilbarslab.ardbackend.print.entity.catalog.repository.CatalogProductAttributeValueRepository;
 import com.ilbarslab.ardbackend.print.entity.catalog.repository.CatalogProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +25,9 @@ public class CatalogCategoryService {
 
     private final CatalogCategoryRepository categoryRepo;
     private final CatalogProductRepository productRepo;
+    private final CatalogAttributeRepository attributeRepo;
+    private final CatalogAttributeOptionRepository attributeOptionRepo;
+    private final CatalogProductAttributeValueRepository attributeValueRepo;
 
     // ─────────── READ ───────────
 
@@ -160,8 +167,18 @@ public class CatalogCategoryService {
                     "Bu kategoride " + productCount + " ürün var, önce onları başka kategoriye taşıyın");
         }
 
+        // ─── Cascade: attributes → options + product_attribute_values → attributes → category ───
+        List<CatalogAttribute> attrs = attributeRepo.findByCategoryIdOrderBySortOrderAsc(id);
+        for (CatalogAttribute attr : attrs) {
+            attributeValueRepo.deleteByAttributeId(attr.getId()); // ürün-özellik seçim değerleri
+            attributeOptionRepo.deleteByAttributeId(attr.getId()); // özellik seçenekleri
+        }
+        if (!attrs.isEmpty()) {
+            attributeRepo.deleteAll(attrs);
+        }
+
         categoryRepo.delete(cat);
-        log.info("Kategori silindi: {}", cat.getName());
+        log.info("Kategori silindi ({}): {} özellik + bağlı seçenekler temizlendi", cat.getName(), attrs.size());
     }
 
     // ─────────── TOGGLE ───────────
