@@ -8,7 +8,7 @@ import com.ilbarslab.ardbackend.print.entity.catalog.repository.CatalogAttribute
 import com.ilbarslab.ardbackend.print.entity.catalog.repository.CatalogAttributeRepository;
 import com.ilbarslab.ardbackend.print.entity.catalog.repository.CatalogCategoryRepository;
 import com.ilbarslab.ardbackend.print.entity.catalog.repository.CatalogProductAttributeValueRepository;
-import com.ilbarslab.ardbackend.print.entity.catalog.repository.CatalogProductRepository;
+import com.ilbarslab.ardbackend.print.repository.CatalogProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;

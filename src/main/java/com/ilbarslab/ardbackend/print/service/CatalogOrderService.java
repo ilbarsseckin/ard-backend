@@ -7,6 +7,7 @@ import com.ilbarslab.ardbackend.print.entity.User;
 import com.ilbarslab.ardbackend.print.entity.catalog.entity.*;
 import com.ilbarslab.ardbackend.print.entity.catalog.repository.*;
 import com.ilbarslab.ardbackend.print.entity.enums.Role;
+import com.ilbarslab.ardbackend.print.repository.CatalogProductRepository;
 import com.ilbarslab.ardbackend.print.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

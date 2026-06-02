@@ -1,4 +1,4 @@
-package com.ilbarslab.ardbackend.print.entity.catalog.repository;
+package com.ilbarslab.ardbackend.print.repository;
 
 import com.ilbarslab.ardbackend.print.entity.catalog.entity.CatalogProduct;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,6 +11,9 @@ public interface CatalogProductRepository extends JpaRepository<CatalogProduct, 
     Optional<CatalogProduct> findBySlug(String slug);
     List<CatalogProduct> findByCategoryIdAndActiveTrueOrderBySortOrderAsc(UUID categoryId);
     List<CatalogProduct> findByCategoryIdOrderBySortOrderAsc(UUID categoryId);
+    // Kategori + alt kategorileri birlikte (recursive listeleme için)
+    List<CatalogProduct> findByCategoryIdInAndActiveTrueOrderBySortOrderAsc(List<UUID> categoryIds);
+    List<CatalogProduct> findByCategoryIdInOrderBySortOrderAsc(List<UUID> categoryIds);
     List<CatalogProduct> findByFeaturedTrueAndActiveTrueOrderBySortOrderAsc();
     List<CatalogProduct> findByBrandIdOrderBySortOrderAsc(UUID brandId);
 

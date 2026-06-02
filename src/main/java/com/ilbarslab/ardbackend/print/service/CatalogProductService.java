@@ -3,6 +3,7 @@ package com.ilbarslab.ardbackend.print.service;
 import com.ilbarslab.ardbackend.print.dto.response.*;
 import com.ilbarslab.ardbackend.print.entity.catalog.entity.*;
 import com.ilbarslab.ardbackend.print.entity.catalog.repository.*;
+import com.ilbarslab.ardbackend.print.repository.CatalogProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -33,9 +34,11 @@ public class CatalogProductService {
     public List<CatalogProductSummaryResponse> list(UUID categoryId, UUID brandId, Boolean activeOnly) {
         List<CatalogProduct> products;
         if (categoryId != null) {
+            // Kategori + tüm alt kategorileri ("Kartvizitler" → Premium, PVC, ... hepsi dahil)
+            List<UUID> categoryIds = collectCategoryAndDescendants(categoryId);
             products = Boolean.TRUE.equals(activeOnly)
-                    ? productRepo.findByCategoryIdAndActiveTrueOrderBySortOrderAsc(categoryId)
-                    : productRepo.findByCategoryIdOrderBySortOrderAsc(categoryId);
+                    ? productRepo.findByCategoryIdInAndActiveTrueOrderBySortOrderAsc(categoryIds)
+                    : productRepo.findByCategoryIdInOrderBySortOrderAsc(categoryIds);
         } else if (brandId != null) {
             products = productRepo.findByBrandIdOrderBySortOrderAsc(brandId);
             if (Boolean.TRUE.equals(activeOnly)) {
@@ -48,6 +51,21 @@ public class CatalogProductService {
             }
         }
         return products.stream().map(this::toSummary).toList();
+    }
+
+    /** Bir kategoriyi ve tüm alt (alt-alt dahil) kategorilerinin ID'lerini toplar. */
+    private List<UUID> collectCategoryAndDescendants(UUID rootId) {
+        List<UUID> ids = new ArrayList<>();
+        Deque<UUID> queue = new ArrayDeque<>();
+        queue.add(rootId);
+        while (!queue.isEmpty()) {
+            UUID current = queue.poll();
+            ids.add(current);
+            for (CatalogCategory child : categoryRepo.findByParentIdOrderBySortOrderAsc(current)) {
+                queue.add(child.getId());
+            }
+        }
+        return ids;
     }
 
     @Transactional(readOnly = true)

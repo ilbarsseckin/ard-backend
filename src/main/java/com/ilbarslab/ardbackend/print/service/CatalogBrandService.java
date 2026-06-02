@@ -3,7 +3,7 @@ package com.ilbarslab.ardbackend.print.service;
 import com.ilbarslab.ardbackend.print.dto.response.CatalogBrandResponse;
 import com.ilbarslab.ardbackend.print.entity.catalog.entity.CatalogBrand;
 import com.ilbarslab.ardbackend.print.entity.catalog.repository.CatalogBrandRepository;
-import com.ilbarslab.ardbackend.print.entity.catalog.repository.CatalogProductRepository;
+import com.ilbarslab.ardbackend.print.repository.CatalogProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
