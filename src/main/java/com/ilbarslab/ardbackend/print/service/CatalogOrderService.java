@@ -22,6 +22,9 @@ import java.math.RoundingMode;
 import java.security.SecureRandom;
 import java.util.*;
 
+// ─── Email ───
+// EmailService is injected via @RequiredArgsConstructor
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -39,6 +42,7 @@ public class CatalogOrderService {
     // YENİ: guest checkout için
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
 
     // Şifre üretimi için karışım — 0/O/1/l gibi kafa karıştırıcı karakterler yok
     private static final char[] PASSWORD_CHARS =
@@ -64,12 +68,13 @@ public class CatalogOrderService {
 
         // ✨ GUEST CHECKOUT: userId yoksa ve email varsa otomatik kullanıcı oluştur
         boolean guestAccountCreated = false;
+        String guestPlainPassword   = null;  // email için saklanır
+
         if (userIdOrNull == null && customerEmail != null && !customerEmail.isBlank()) {
             String normalizedEmail = customerEmail.toLowerCase().trim();
             Optional<User> existing = userRepository.findByEmail(normalizedEmail);
 
             if (existing.isEmpty()) {
-                // YENİ KULLANICI — otomatik oluştur
                 String plainPassword = generateRandomPassword();
                 User newUser = User.builder()
                         .email(normalizedEmail)
@@ -81,23 +86,14 @@ public class CatalogOrderService {
                         .build();
                 User saved = userRepository.save(newUser);
 
-                log.info("");
-                log.info("════════════════════════════════════════════════════");
-                log.info("🔑 [GUEST-CHECKOUT] YENİ KULLANICI OLUŞTURULDU");
-                log.info("   Email:  {}", normalizedEmail);
-                log.info("   Şifre:  {}", plainPassword);
-                log.info("   ⚠ TODO: SMTP kurulduğunda email gönder");
-                log.info("════════════════════════════════════════════════════");
-                log.info("");
+                log.info("🔑 [GUEST-CHECKOUT] Yeni kullanıcı oluşturuldu: {}", normalizedEmail);
 
-                userIdOrNull = saved.getId();
+                userIdOrNull        = saved.getId();
                 guestAccountCreated = true;
+                guestPlainPassword  = plainPassword;
             } else {
-                // Email zaten kayıtlı — GÜVENLIK için otomatik bağlama
-                // Aksi halde misafir, X'in emaili ile sipariş verir, X'in hesabına eklenir.
                 log.info("📧 [GUEST-CHECKOUT] Email zaten kayıtlı ({}), guest order olarak kaydediliyor",
                         normalizedEmail);
-                // userIdOrNull null kalıyor — guest order
             }
         }
 
@@ -223,7 +219,15 @@ public class CatalogOrderService {
                 order.getOrderNumber(), itemsList.size(), totalTl, guestAccountCreated);
 
         CatalogOrderResponse response = toResponse(order);
-        response.setGuestAccountCreated(guestAccountCreated);  // ← YENİ
+        response.setGuestAccountCreated(guestAccountCreated);
+
+        // ─── EMAIL BİLDİRİMLERİ (async — API yanıtını bloklamaz) ───
+        emailService.sendOrderCreated(response);
+
+        if (guestAccountCreated && guestPlainPassword != null && customerEmail != null) {
+            emailService.sendGuestWelcome(customerEmail, customerName, guestPlainPassword, order.getOrderNumber());
+        }
+
         return response;
     }
 
@@ -259,6 +263,13 @@ public class CatalogOrderService {
         return orders.stream().map(this::toResponse).toList();
     }
 
+    /** Giriş yapmış kullanıcının kendi siparişleri */
+    @Transactional(readOnly = true)
+    public List<CatalogOrderResponse> listByUser(UUID userId) {
+        return orderRepo.findByUserIdOrderByCreatedAtDesc(userId)
+                .stream().map(this::toResponse).toList();
+    }
+
     @Transactional
     public CatalogOrderResponse updateStatus(UUID id, String newStatus) {
         CatalogOrder order = orderRepo.findById(id)
@@ -271,7 +282,32 @@ public class CatalogOrderService {
         }
         order.setStatus(status);
         order = orderRepo.save(order);
-        return toResponse(order);
+        CatalogOrderResponse response = toResponse(order);
+
+        // ─── DURUM GÜNCELLEME EMAİLİ ───
+        emailService.sendStatusUpdate(response, newStatus);
+
+        return response;
+    }
+
+    /**
+     * Kargo bilgisi kaydet + müşteriye kargo bildirimi gönder.
+     * Admin panelinden çağrılır.
+     */
+    @Transactional
+    public CatalogOrderResponse markShipped(UUID id, String trackingNumber, String cargoCompany) {
+        CatalogOrder order = orderRepo.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sipariş bulunamadı"));
+
+        order.setTrackingNumber(trackingNumber);
+        order.setCargoCompany(cargoCompany);
+        order.setStatus(CatalogOrderStatus.SHIPPED);
+        order = orderRepo.save(order);
+
+        CatalogOrderResponse response = toResponse(order);
+        emailService.sendShipped(response, trackingNumber, cargoCompany);
+
+        return response;
     }
 
     // ─────────── helpers ───────────
@@ -345,6 +381,8 @@ public class CatalogOrderService {
                 .items(items)
                 .createdAt(o.getCreatedAt())
                 .updatedAt(o.getUpdatedAt())
+                .trackingNumber(o.getTrackingNumber())
+                .cargoCompany(o.getCargoCompany())
                 .build();
     }
 

@@ -36,4 +36,23 @@ public class CatalogOrderAdminController {
             "message", "Durum güncellendi"
         ));
     }
+
+    /**
+     * Kargo bilgisi gir + status SHIPPED yap + müşteriye email at.
+     * Body: { "trackingNumber": "...", "cargoCompany": "Yurtiçi" }
+     */
+    @PatchMapping("/{id}/ship")
+    public ResponseEntity<?> markShipped(
+            @PathVariable UUID id,
+            @RequestBody Map<String, Object> body) {
+        String trackingNumber = body.get("trackingNumber") == null ? null : body.get("trackingNumber").toString();
+        String cargoCompany   = body.get("cargoCompany")   == null ? null : body.get("cargoCompany").toString();
+        if (trackingNumber == null || trackingNumber.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "trackingNumber zorunlu"));
+        }
+        return ResponseEntity.ok(Map.of(
+            "data", service.markShipped(id, trackingNumber, cargoCompany),
+            "message", "Kargo bilgisi kaydedildi, müşteriye bildirim gönderildi"
+        ));
+    }
 }

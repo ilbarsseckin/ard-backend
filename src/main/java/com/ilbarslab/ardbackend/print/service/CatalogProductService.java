@@ -366,6 +366,7 @@ public class CatalogProductService {
                 .shortDesc(p.getShortDesc())
                 .categoryId(p.getCategory().getId())
                 .categoryName(p.getCategory().getName())
+                .categorySlug(p.getCategory().getSlug())
                 .brandId(p.getBrand() != null ? p.getBrand().getId() : null)
                 .brandName(p.getBrand() != null ? p.getBrand().getName() : null)
                 .mainImageUrl(images.size() > 0 ? images.get(0).getUrl() : null)

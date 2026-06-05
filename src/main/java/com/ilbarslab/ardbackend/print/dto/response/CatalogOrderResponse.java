@@ -40,4 +40,7 @@ public class CatalogOrderResponse {
 
     @Builder.Default
     private Boolean guestAccountCreated = false;
+
+    private String trackingNumber;
+    private String cargoCompany;
 }

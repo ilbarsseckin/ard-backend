@@ -4,26 +4,45 @@ spring:
     username: baski_user
     password: ${DB_PASS:baski_pass}
     driver-class-name: org.postgresql.Driver
-    
+
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: true
     open-in-view: false
+
   jackson:
     serialization:
       write-dates-as-timestamps: false
+
   servlet:
     multipart:
       enabled: true
       max-file-size: 100MB
       max-request-size: 100MB
 
+  # ─── Gmail SMTP ───
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:your-gmail@gmail.com}
+    password: ${MAIL_PASSWORD:your-app-password}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+        transport:
+          protocol: smtp
+
 logging:
   level:
     org:
       springframework:
-        web=DEBUG:
+        web: DEBUG
+
 server:
   port: 8080
 
@@ -38,13 +57,10 @@ r2:
   bucket: ${R2_BUCKET:baski-dosyalari}
   presigned-url-expiry: 900
 
-
 iyzico:
   api-key: ${IYZICO_API_KEY:sandbox-placeholder}
   secret-key: ${IYZICO_SECRET_KEY:sandbox-placeholder}
   base-url: https://sandbox-api.iyzipay.com
-  app:frontend-url=${FRONTEND_URL:http://localhost:3000}:
-
 
 resend:
   api-key: ${RESEND_API_KEY:re_test_key}
@@ -55,20 +71,21 @@ netgsm:
   password: ${NETGSM_PASSWORD:sifre}
   header: ${NETGSM_HEADER:BASKISIST}
 
-  sentry:
-    dsn: https://a78566bca3eb5308a89051775d830f01@o4511417135726593.ingest.de.sentry.io/4511417150799952
-    environment: development
-    traces-sample-rate: 1.0
-    send-default-pii: true
-
+sentry:
+  dsn: https://a78566bca3eb5308a89051775d830f01@o4511417135726593.ingest.de.sentry.io/4511417150799952
+  environment: ${SENTRY_ENV:development}
+  traces-sample-rate: 1.0
+  send-default-pii: true
 
 google:
   client-id: ${GOOGLE_CLIENT_ID:}
   client-secret: ${GOOGLE_CLIENT_SECRET:}
 
-
-  servlet:
-    multipart:
-      max-file-size: 50MB
-      max-request-size: 50MB
-      enabled: true
+app:
+  frontend-url: ${FRONTEND_URL:http://localhost:3000}
+  backend-url: ${BACKEND_URL:http://localhost:8080}
+  mail:
+    from-name: ${MAIL_FROM_NAME:ARD Baskı}
+    from-address: ${MAIL_USERNAME:your-gmail@gmail.com}
+    frontend-url: ${FRONTEND_URL:http://localhost:3000}
+    logo-url: ${MAIL_LOGO_URL:https://ardbaski.com/logo.png}

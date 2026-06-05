@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.util.*;
 
 @Service
@@ -162,6 +163,7 @@ public class CatalogAttributeService {
                 .value(value)
                 .colorHex(asString(body.get("colorHex")))
                 .sortOrder(asInt(body.get("sortOrder"), 0))
+                .priceModifier(asBigDecimal(body.get("priceModifier"), BigDecimal.ONE))
                 .build();
 
         opt = optionRepo.save(opt);
@@ -173,9 +175,10 @@ public class CatalogAttributeService {
         CatalogAttributeOption opt = optionRepo.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Seçenek bulunamadı"));
 
-        if (body.containsKey("value"))     opt.setValue(asString(body.get("value")));
-        if (body.containsKey("colorHex"))  opt.setColorHex(asString(body.get("colorHex")));
-        if (body.containsKey("sortOrder")) opt.setSortOrder(asInt(body.get("sortOrder"), opt.getSortOrder()));
+        if (body.containsKey("value"))         opt.setValue(asString(body.get("value")));
+        if (body.containsKey("colorHex"))       opt.setColorHex(asString(body.get("colorHex")));
+        if (body.containsKey("sortOrder"))      opt.setSortOrder(asInt(body.get("sortOrder"), opt.getSortOrder()));
+        if (body.containsKey("priceModifier"))  opt.setPriceModifier(asBigDecimal(body.get("priceModifier"), opt.getPriceModifier()));
 
         opt = optionRepo.save(opt);
         return toOptionResponse(opt);
@@ -229,7 +232,14 @@ public class CatalogAttributeService {
                 .value(o.getValue())
                 .colorHex(o.getColorHex())
                 .sortOrder(o.getSortOrder())
+                .priceModifier(o.getPriceModifier())
                 .build();
+    }
+
+    private static BigDecimal asBigDecimal(Object v, BigDecimal fallback) {
+        if (v == null) return fallback;
+        try { return new BigDecimal(v.toString().trim()); }
+        catch (Exception e) { return fallback; }
     }
 
     private static String asString(Object v) {

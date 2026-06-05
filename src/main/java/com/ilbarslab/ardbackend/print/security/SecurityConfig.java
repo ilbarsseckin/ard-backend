@@ -65,6 +65,8 @@ public class SecurityConfig {
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/api/catalog/orders/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/catalog/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/installment").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/contact").permitAll()
                         .requestMatchers("/api/hero-slides", "/api/hero-slides/**").permitAll()
                         .requestMatchers("/api/catalog/pre-order-files/**").permitAll()
 

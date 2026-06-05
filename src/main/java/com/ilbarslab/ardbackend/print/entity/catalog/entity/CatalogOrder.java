@@ -101,4 +101,12 @@ public class CatalogOrder {
 
     @Column(name = "coupon_code", length = 50)
     private String couponCode;
+
+    /** Kargo takip numarası — admin tarafından girilir */
+    @Column(name = "tracking_number", length = 100)
+    private String trackingNumber;
+
+    /** Kargo firması — Yurtiçi, Aras, PTT, MNG vb. */
+    @Column(name = "cargo_company", length = 60)
+    private String cargoCompany;
 }
