@@ -1,0 +1,131 @@
+version: "3.9"
+
+services:
+  # ── PostgreSQL ────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: baski_db
+      POSTGRES_USER: baski_user
+      POSTGRES_PASSWORD: ${DB_PASS}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U baski_user -d baski_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  # ── Redis (rate limiting için) ────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks:
+      - internal
+
+  # ── Backend (Spring Boot) ─────────────────────────────────────────
+  backend:
+    build:
+      context: ./ard-backend
+      dockerfile: ../deploy/backend.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Veritabanı
+      DB_PASS: ${DB_PASS}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/baski_db
+      SPRING_DATASOURCE_USERNAME: baski_user
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASS}
+
+      # JWT
+      JWT_SECRET: ${JWT_SECRET}
+
+      # Cloudflare R2
+      R2_ENDPOINT: ${R2_ENDPOINT}
+      R2_ACCESS_KEY: ${R2_ACCESS_KEY}
+      R2_SECRET_KEY: ${R2_SECRET_KEY}
+      R2_BUCKET: ${R2_BUCKET}
+
+      # iyzico (prod URL'si)
+      IYZICO_API_KEY: ${IYZICO_API_KEY}
+      IYZICO_SECRET_KEY: ${IYZICO_SECRET_KEY}
+      IYZICO_BASE_URL: https://api.iyzipay.com
+      FRONTEND_URL: ${FRONTEND_URL}
+
+      # E-posta
+      RESEND_API_KEY: ${RESEND_API_KEY}
+
+      # SMS
+      NETGSM_USERNAME: ${NETGSM_USERNAME}
+      NETGSM_PASSWORD: ${NETGSM_PASSWORD}
+      NETGSM_HEADER: ${NETGSM_HEADER}
+
+      # Google OAuth
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+
+      # Sentry
+      SENTRY_DSN: ${SENTRY_DSN}
+      SENTRY_ENVIRONMENT: production
+
+    networks:
+      - internal
+    expose:
+      - "8080"
+
+  # ── Frontend (Next.js) ────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./ard-frontend
+      dockerfile: ../deploy/frontend.Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    networks:
+      - internal
+    expose:
+      - "3001"
+
+  # ── Nginx (Reverse Proxy + SSL) ───────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/certbot/conf:/etc/letsencrypt:ro
+      - ./deploy/certbot/www:/var/www/certbot:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - internal
+      - external
+
+  # ── Certbot (SSL yenileme) ────────────────────────────────────────
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./deploy/certbot/conf:/etc/letsencrypt
+      - ./deploy/certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+volumes:
+  pgdata:
+
+networks:
+  internal:
+    driver: bridge
+  external:
+    driver: bridge

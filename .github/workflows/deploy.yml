@@ -1,0 +1,57 @@
+name: Backend Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "pom.xml"
+      - "Dockerfile"
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Java 24 kur
+        uses: actions/setup-java@v4
+        with:
+          java-version: "24"
+          distribution: "temurin"
+          cache: maven
+
+      - name: Testleri çalıştır
+        run: mvn test -q
+
+  deploy:
+    name: Deploy to Hetzner
+    runs-on: ubuntu-latest
+    needs: test
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker image oluştur ve push et
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ../deploy/backend.Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/ard-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Sunucuya bağlan ve deploy et
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            cd /opt/ard
+            docker compose -f deploy/docker-compose.prod.yml pull backend
+            docker compose -f deploy/docker-compose.prod.yml up -d --no-deps backend
+            docker image prune -f
