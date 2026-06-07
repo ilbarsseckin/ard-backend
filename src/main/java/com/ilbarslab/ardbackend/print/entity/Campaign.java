@@ -8,17 +8,10 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * Görsel/tanıtım kampanyası — fiyatı OTOMATİK değiştirmez.
- * Örn: "3 Yelken Bayrak Alana Kartvizit 1 TL" gibi paket fırsatları
- * banner + rozet + açıklama olarak vitrinde duyurulur.
- *
- * Not: HeroSlide deseninin birebir kardeşi; ek olarak rozet (badge) alanları var.
- */
 @Entity
 @Table(name = "campaigns", indexes = {
-    @Index(name = "idx_campaign_active", columnList = "active"),
-    @Index(name = "idx_campaign_sort",   columnList = "sort_order"),
+        @Index(name = "idx_campaign_active", columnList = "active"),
+        @Index(name = "idx_campaign_sort",   columnList = "sort_order"),
 })
 @Getter @Setter @Builder
 @NoArgsConstructor @AllArgsConstructor
@@ -27,6 +20,10 @@ public class Campaign {
     @Id
     @GeneratedValue
     private UUID id;
+
+    /** URL slug — örn. "3-yelken-bayrak-1-tl-kartvizit" → /lp/3-yelken-bayrak-1-tl-kartvizit */
+    @Column(length = 200, unique = true)
+    private String slug;
 
     /** Üst etiket — örn. "FIRSAT", "PAKET KAMPANYA" */
     @Column(length = 200)
@@ -40,7 +37,11 @@ public class Campaign {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    /** Rozet metni — örn. "1 TL", "PAKET", "%50" (kart üstünde küçük etiket) */
+    /** Landing page için uzun içerik (JSON veya HTML) */
+    @Column(name = "landing_content", columnDefinition = "TEXT")
+    private String landingContent;
+
+    /** Rozet metni — örn. "1 TL", "PAKET", "%50" */
     @Column(name = "badge_text", length = 40)
     private String badgeText;
 
@@ -48,7 +49,7 @@ public class Campaign {
     @Column(name = "badge_color", length = 30)
     private String badgeColor;
 
-    /** Desktop banner görseli (full URL) */
+    /** Desktop banner görseli */
     @Column(name = "image_url", nullable = false, length = 500)
     private String imageUrl;
 
@@ -56,15 +57,15 @@ public class Campaign {
     @Column(name = "mobile_image_url", length = 500)
     private String mobileImageUrl;
 
-    /** Tema/arka plan rengi — örn. "#fef3c7" */
+    /** Tema/arka plan rengi */
     @Column(name = "background_color", length = 30)
     private String backgroundColor;
 
-    /** CTA buton metni — örn. "İncele", "Hemen Sipariş Ver" */
+    /** CTA buton metni */
     @Column(name = "cta_text", length = 60)
     private String ctaText;
 
-    /** CTA link — iç (/katalog) veya dış URL */
+    /** CTA link */
     @Column(name = "cta_link", length = 500)
     private String ctaLink;
 
@@ -76,11 +77,9 @@ public class Campaign {
     @Builder.Default
     private Boolean active = true;
 
-    /** Bu tarihten önce gösterme (null = sınırsız geçmiş) */
     @Column(name = "starts_at")
     private Instant startsAt;
 
-    /** Bu tarihten sonra gösterme (null = sınırsız gelecek) */
     @Column(name = "ends_at")
     private Instant endsAt;
 
