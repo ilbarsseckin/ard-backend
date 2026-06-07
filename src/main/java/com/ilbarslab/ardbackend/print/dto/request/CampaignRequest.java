@@ -6,9 +6,11 @@ import java.time.Instant;
 
 @Data
 public class CampaignRequest {
+    private String slug;
     private String label;
     private String title;
     private String description;
+    private String landingContent;
     private String badgeText;
     private String badgeColor;
     private String imageUrl;

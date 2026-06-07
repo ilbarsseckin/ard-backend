@@ -12,9 +12,11 @@ import java.util.UUID;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class CampaignResponse {
     private UUID id;
+    private String slug;
     private String label;
     private String title;
     private String description;
+    private String landingContent;
     private String badgeText;
     private String badgeColor;
     private String imageUrl;

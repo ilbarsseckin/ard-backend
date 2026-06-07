@@ -14,9 +14,13 @@ public class CampaignPublicController {
 
     private final CampaignService service;
 
-    /** Vitrin için aktif kampanyalar */
     @GetMapping
     public ResponseEntity<?> listActive() {
         return ResponseEntity.ok(Map.of("data", service.listActive()));
+    }
+
+    @GetMapping("/lp/{slug}")
+    public ResponseEntity<?> getBySlug(@PathVariable String slug) {
+        return ResponseEntity.ok(Map.of("data", service.getBySlug(slug)));
     }
 }

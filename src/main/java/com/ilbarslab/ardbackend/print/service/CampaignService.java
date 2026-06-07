@@ -22,8 +22,6 @@ public class CampaignService {
 
     // ─────────── PUBLIC ───────────
 
-    /** Vitrin için — sadece aktif ve tarih aralığındaki kampanyalar */
-    @Transactional(readOnly = true)
     public List<CampaignResponse> listActive() {
         Instant now = Instant.now();
         return repo.findByActiveTrueOrderBySortOrderAscCreatedAtAsc().stream()
@@ -33,16 +31,20 @@ public class CampaignService {
             .toList();
     }
 
+    public CampaignResponse getBySlug(String slug) {
+        return repo.findBySlugAndActiveTrue(slug)
+            .map(this::toResponse)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Kampanya bulunamadı"));
+    }
+
     // ─────────── ADMIN ───────────
 
-    @Transactional(readOnly = true)
     public List<CampaignResponse> listAll() {
         return repo.findAllByOrderBySortOrderAscCreatedAtAsc().stream()
             .map(this::toResponse)
             .toList();
     }
 
-    @Transactional(readOnly = true)
     public CampaignResponse getById(UUID id) {
         return toResponse(find(id));
     }
@@ -51,9 +53,11 @@ public class CampaignService {
     public CampaignResponse create(CampaignRequest req) {
         validate(req);
         Campaign c = Campaign.builder()
+            .slug(req.getSlug())
             .label(req.getLabel())
             .title(req.getTitle())
             .description(req.getDescription())
+            .landingContent(req.getLandingContent())
             .badgeText(req.getBadgeText())
             .badgeColor(req.getBadgeColor())
             .imageUrl(req.getImageUrl())
@@ -73,9 +77,11 @@ public class CampaignService {
     public CampaignResponse update(UUID id, CampaignRequest req) {
         validate(req);
         Campaign c = find(id);
+        c.setSlug(req.getSlug());
         c.setLabel(req.getLabel());
         c.setTitle(req.getTitle());
         c.setDescription(req.getDescription());
+        c.setLandingContent(req.getLandingContent());
         c.setBadgeText(req.getBadgeText());
         c.setBadgeColor(req.getBadgeColor());
         c.setImageUrl(req.getImageUrl());
@@ -105,16 +111,11 @@ public class CampaignService {
     @Transactional
     public void reorder(List<UUID> orderedIds) {
         for (int i = 0; i < orderedIds.size(); i++) {
-            UUID id = orderedIds.get(i);
-            Campaign c = repo.findById(id).orElse(null);
-            if (c != null) {
-                c.setSortOrder(i);
-                repo.save(c);
-            }
+            UUID oid = orderedIds.get(i);
+            Campaign c = repo.findById(oid).orElse(null);
+            if (c != null) { c.setSortOrder(i); repo.save(c); }
         }
     }
-
-    // ─────────── private ───────────
 
     private Campaign find(UUID id) {
         return repo.findById(id)
@@ -122,20 +123,20 @@ public class CampaignService {
     }
 
     private void validate(CampaignRequest req) {
-        if (req.getTitle() == null || req.getTitle().isBlank()) {
+        if (req.getTitle() == null || req.getTitle().isBlank())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Başlık zorunlu");
-        }
-        if (req.getImageUrl() == null || req.getImageUrl().isBlank()) {
+        if (req.getImageUrl() == null || req.getImageUrl().isBlank())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Görsel zorunlu");
-        }
     }
 
     private CampaignResponse toResponse(Campaign c) {
         return CampaignResponse.builder()
             .id(c.getId())
+            .slug(c.getSlug())
             .label(c.getLabel())
             .title(c.getTitle())
             .description(c.getDescription())
+            .landingContent(c.getLandingContent())
             .badgeText(c.getBadgeText())
             .badgeColor(c.getBadgeColor())
             .imageUrl(c.getImageUrl())
