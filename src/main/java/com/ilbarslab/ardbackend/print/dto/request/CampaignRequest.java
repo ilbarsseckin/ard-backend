@@ -2,8 +2,6 @@ package com.ilbarslab.ardbackend.print.dto.request;
 
 import lombok.Data;
 
-import java.time.Instant;
-
 @Data
 public class CampaignRequest {
     private String slug;
@@ -20,6 +18,6 @@ public class CampaignRequest {
     private String ctaLink;
     private Integer sortOrder;
     private Boolean active;
-    private Instant startsAt;
-    private Instant endsAt;
+    private String startsAt;
+    private String endsAt;
 }

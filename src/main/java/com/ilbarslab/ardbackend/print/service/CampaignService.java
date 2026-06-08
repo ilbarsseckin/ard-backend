@@ -20,29 +20,34 @@ public class CampaignService {
 
     private final CampaignRepository repo;
 
+    private static Instant parseInstant(String s) {
+        if (s == null || s.isBlank()) return null;
+        try { return Instant.parse(s); } catch (Exception e) { return null; }
+    }
+
     // ─────────── PUBLIC ───────────
 
     public List<CampaignResponse> listActive() {
         Instant now = Instant.now();
         return repo.findByActiveTrueOrderBySortOrderAscCreatedAtAsc().stream()
-            .filter(c -> c.getStartsAt() == null || !now.isBefore(c.getStartsAt()))
-            .filter(c -> c.getEndsAt() == null   || !now.isAfter(c.getEndsAt()))
-            .map(this::toResponse)
-            .toList();
+                .filter(c -> c.getStartsAt() == null || !now.isBefore(c.getStartsAt()))
+                .filter(c -> c.getEndsAt() == null   || !now.isAfter(c.getEndsAt()))
+                .map(this::toResponse)
+                .toList();
     }
 
     public CampaignResponse getBySlug(String slug) {
         return repo.findBySlugAndActiveTrue(slug)
-            .map(this::toResponse)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Kampanya bulunamadı"));
+                .map(this::toResponse)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Kampanya bulunamadı"));
     }
 
     // ─────────── ADMIN ───────────
 
     public List<CampaignResponse> listAll() {
         return repo.findAllByOrderBySortOrderAscCreatedAtAsc().stream()
-            .map(this::toResponse)
-            .toList();
+                .map(this::toResponse)
+                .toList();
     }
 
     public CampaignResponse getById(UUID id) {
@@ -53,23 +58,23 @@ public class CampaignService {
     public CampaignResponse create(CampaignRequest req) {
         validate(req);
         Campaign c = Campaign.builder()
-            .slug(req.getSlug())
-            .label(req.getLabel())
-            .title(req.getTitle())
-            .description(req.getDescription())
-            .landingContent(req.getLandingContent())
-            .badgeText(req.getBadgeText())
-            .badgeColor(req.getBadgeColor())
-            .imageUrl(req.getImageUrl())
-            .mobileImageUrl(req.getMobileImageUrl())
-            .backgroundColor(req.getBackgroundColor())
-            .ctaText(req.getCtaText())
-            .ctaLink(req.getCtaLink())
-            .sortOrder(req.getSortOrder() == null ? 0 : req.getSortOrder())
-            .active(req.getActive() == null ? Boolean.TRUE : req.getActive())
-            .startsAt(req.getStartsAt())
-            .endsAt(req.getEndsAt())
-            .build();
+                .slug(req.getSlug())
+                .label(req.getLabel())
+                .title(req.getTitle())
+                .description(req.getDescription())
+                .landingContent(req.getLandingContent())
+                .badgeText(req.getBadgeText())
+                .badgeColor(req.getBadgeColor())
+                .imageUrl(req.getImageUrl())
+                .mobileImageUrl(req.getMobileImageUrl())
+                .backgroundColor(req.getBackgroundColor())
+                .ctaText(req.getCtaText())
+                .ctaLink(req.getCtaLink())
+                .sortOrder(req.getSortOrder() == null ? 0 : req.getSortOrder())
+                .active(req.getActive() == null ? Boolean.TRUE : req.getActive())
+                .startsAt(parseInstant(req.getStartsAt()))
+                .endsAt(parseInstant(req.getEndsAt()))
+                .build();
         return toResponse(repo.save(c));
     }
 
@@ -91,8 +96,8 @@ public class CampaignService {
         c.setCtaLink(req.getCtaLink());
         if (req.getSortOrder() != null) c.setSortOrder(req.getSortOrder());
         if (req.getActive() != null) c.setActive(req.getActive());
-        c.setStartsAt(req.getStartsAt());
-        c.setEndsAt(req.getEndsAt());
+        c.setStartsAt(parseInstant(req.getStartsAt()));
+        c.setEndsAt(parseInstant(req.getEndsAt()));
         return toResponse(repo.save(c));
     }
 
@@ -119,7 +124,7 @@ public class CampaignService {
 
     private Campaign find(UUID id) {
         return repo.findById(id)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Kampanya bulunamadı"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Kampanya bulunamadı"));
     }
 
     private void validate(CampaignRequest req) {
@@ -131,25 +136,25 @@ public class CampaignService {
 
     private CampaignResponse toResponse(Campaign c) {
         return CampaignResponse.builder()
-            .id(c.getId())
-            .slug(c.getSlug())
-            .label(c.getLabel())
-            .title(c.getTitle())
-            .description(c.getDescription())
-            .landingContent(c.getLandingContent())
-            .badgeText(c.getBadgeText())
-            .badgeColor(c.getBadgeColor())
-            .imageUrl(c.getImageUrl())
-            .mobileImageUrl(c.getMobileImageUrl())
-            .backgroundColor(c.getBackgroundColor())
-            .ctaText(c.getCtaText())
-            .ctaLink(c.getCtaLink())
-            .sortOrder(c.getSortOrder())
-            .active(c.getActive())
-            .startsAt(c.getStartsAt())
-            .endsAt(c.getEndsAt())
-            .createdAt(c.getCreatedAt())
-            .updatedAt(c.getUpdatedAt())
-            .build();
+                .id(c.getId())
+                .slug(c.getSlug())
+                .label(c.getLabel())
+                .title(c.getTitle())
+                .description(c.getDescription())
+                .landingContent(c.getLandingContent())
+                .badgeText(c.getBadgeText())
+                .badgeColor(c.getBadgeColor())
+                .imageUrl(c.getImageUrl())
+                .mobileImageUrl(c.getMobileImageUrl())
+                .backgroundColor(c.getBackgroundColor())
+                .ctaText(c.getCtaText())
+                .ctaLink(c.getCtaLink())
+                .sortOrder(c.getSortOrder())
+                .active(c.getActive())
+                .startsAt(c.getStartsAt())
+                .endsAt(c.getEndsAt())
+                .createdAt(c.getCreatedAt())
+                .updatedAt(c.getUpdatedAt())
+                .build();
     }
 }
