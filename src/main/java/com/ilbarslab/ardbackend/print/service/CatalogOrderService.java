@@ -1,11 +1,13 @@
 package com.ilbarslab.ardbackend.print.service;
 
-
 import com.ilbarslab.ardbackend.print.dto.response.CatalogOrderItemResponse;
 import com.ilbarslab.ardbackend.print.dto.response.CatalogOrderResponse;
 import com.ilbarslab.ardbackend.print.entity.User;
 import com.ilbarslab.ardbackend.print.entity.catalog.entity.*;
 import com.ilbarslab.ardbackend.print.entity.catalog.repository.*;
+import com.ilbarslab.ardbackend.print.entity.coupon.entity.Coupon;
+import com.ilbarslab.ardbackend.print.entity.coupon.entity.CouponType;
+import com.ilbarslab.ardbackend.print.entity.coupon.repository.CouponRepository;
 import com.ilbarslab.ardbackend.print.entity.enums.Role;
 import com.ilbarslab.ardbackend.print.repository.CatalogProductRepository;
 import com.ilbarslab.ardbackend.print.repository.UserRepository;
@@ -20,10 +22,8 @@ import org.springframework.web.server.ResponseStatusException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.security.SecureRandom;
+import java.time.LocalDateTime;
 import java.util.*;
-
-// ─── Email ───
-// EmailService is injected via @RequiredArgsConstructor
 
 @Service
 @RequiredArgsConstructor
@@ -38,13 +38,11 @@ public class CatalogOrderService {
     private final CatalogAttributeRepository attrRepo;
     private final CatalogAttributeOptionRepository optionRepo;
     private final PreOrderFileService preOrderFileService;
-
-    // YENİ: guest checkout için
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final CouponRepository couponRepo;
 
-    // Şifre üretimi için karışım — 0/O/1/l gibi kafa karıştırıcı karakterler yok
     private static final char[] PASSWORD_CHARS =
             "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789".toCharArray();
     private static final SecureRandom RAND = new SecureRandom();
@@ -62,18 +60,15 @@ public class CatalogOrderService {
         String notes           = asString(body.get("notes"));
 
         Object rawItems = body.get("items");
-        if (!(rawItems instanceof List<?> itemsList) || itemsList.isEmpty()) {
+        if (!(rawItems instanceof List<?> itemsList) || itemsList.isEmpty())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "En az 1 ürün gerekli");
-        }
 
-        // ✨ GUEST CHECKOUT: userId yoksa ve email varsa otomatik kullanıcı oluştur
         boolean guestAccountCreated = false;
-        String guestPlainPassword   = null;  // email için saklanır
+        String guestPlainPassword   = null;
 
         if (userIdOrNull == null && customerEmail != null && !customerEmail.isBlank()) {
             String normalizedEmail = customerEmail.toLowerCase().trim();
             Optional<User> existing = userRepository.findByEmail(normalizedEmail);
-
             if (existing.isEmpty()) {
                 String plainPassword = generateRandomPassword();
                 User newUser = User.builder()
@@ -85,15 +80,10 @@ public class CatalogOrderService {
                         .emailVerified(false)
                         .build();
                 User saved = userRepository.save(newUser);
-
                 log.info("🔑 [GUEST-CHECKOUT] Yeni kullanıcı oluşturuldu: {}", normalizedEmail);
-
                 userIdOrNull        = saved.getId();
                 guestAccountCreated = true;
                 guestPlainPassword  = plainPassword;
-            } else {
-                log.info("📧 [GUEST-CHECKOUT] Email zaten kayıtlı ({}), guest order olarak kaydediliyor",
-                        normalizedEmail);
             }
         }
 
@@ -116,44 +106,33 @@ public class CatalogOrderService {
         order = orderRepo.save(order);
 
         BigDecimal subtotalUsd = BigDecimal.ZERO;
-        BigDecimal totalTl = BigDecimal.ZERO;
-        List<UUID> allDesignFileIds = new ArrayList<>();
-        List<String> designSupportNotes = new ArrayList<>();
+        BigDecimal totalTl     = BigDecimal.ZERO;
+        List<UUID> allDesignFileIds      = new ArrayList<>();
+        List<String> designSupportNotes  = new ArrayList<>();
 
         for (Object rawItem : itemsList) {
             if (!(rawItem instanceof Map<?,?> item)) continue;
 
             UUID productId = parseUuid(item.get("productId"));
             UUID tierId    = parseUuid(item.get("tierId"));
-            if (productId == null || tierId == null) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Her üründe productId ve tierId zorunlu");
-            }
+            if (productId == null || tierId == null)
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Her üründe productId ve tierId zorunlu");
 
             CatalogProduct product = productRepo.findById(productId)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                            "Ürün bulunamadı: " + productId));
-
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ürün bulunamadı: " + productId));
             CatalogProductTier tier = tierRepo.findById(tierId)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                            "Fiyat baremi bulunamadı: " + tierId));
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Fiyat baremi bulunamadı: " + tierId));
 
-            if (!tier.getProduct().getId().equals(productId)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Tier bu ürüne ait değil");
-            }
+            if (!tier.getProduct().getId().equals(productId))
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tier bu ürüne ait değil");
 
-            // FROZEN PRICE
-            BigDecimal priceTl = parseDecimal(item.get("priceTl"));
+            BigDecimal priceTl  = parseDecimal(item.get("priceTl"));
             BigDecimal priceUsd = parseDecimal(item.get("priceUsd"));
 
-            if (priceTl == null || priceTl.signum() <= 0) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "priceTl zorunlu ve pozitif olmalı (" + product.getName() + ")");
-            }
-            if (priceUsd == null || priceUsd.signum() <= 0) {
+            if (priceTl == null || priceTl.signum() <= 0)
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "priceTl zorunlu ve pozitif olmalı (" + product.getName() + ")");
+            if (priceUsd == null || priceUsd.signum() <= 0)
                 priceUsd = tier.getPriceUsd();
-            }
 
             String mainImage = imageRepo.findByProductIdOrderBySortOrderAsc(productId).stream()
                     .findFirst().map(CatalogProductImage::getUrl).orElse(null);
@@ -177,9 +156,8 @@ public class CatalogOrderService {
                     .build();
 
             itemRepo.save(oi);
-
             subtotalUsd = subtotalUsd.add(priceUsd);
-            totalTl = totalTl.add(priceTl);
+            totalTl     = totalTl.add(priceTl);
 
             Object rawFileIds = item.get("designFileIds");
             if (rawFileIds instanceof List<?> fileList) {
@@ -192,22 +170,21 @@ public class CatalogOrderService {
             Object rawSupport = item.get("designSupport");
             if (rawSupport instanceof Map<?,?> supportMap) {
                 Object rawNotes = supportMap.get("notes");
-                if (rawNotes != null && !rawNotes.toString().isBlank()) {
+                if (rawNotes != null && !rawNotes.toString().isBlank())
                     designSupportNotes.add("• " + product.getName() + " — " + rawNotes.toString().trim());
-                }
             }
         }
 
         if (!designSupportNotes.isEmpty()) {
             String supportBlock = "🎨 Tasarım Desteği İstenenler:\n" + String.join("\n", designSupportNotes);
             String existing = order.getNotes();
-            order.setNotes(existing == null || existing.isBlank()
-                    ? supportBlock
-                    : existing + "\n\n" + supportBlock);
+            order.setNotes(existing == null || existing.isBlank() ? supportBlock : existing + "\n\n" + supportBlock);
         }
 
         order.setSubtotalUsd(subtotalUsd);
+        order.setSubtotalTl(totalTl);
         order.setTotalTl(totalTl);
+        order.setDiscountAmountTl(BigDecimal.ZERO);
         order = orderRepo.save(order);
 
         if (!allDesignFileIds.isEmpty()) {
@@ -221,14 +198,100 @@ public class CatalogOrderService {
         CatalogOrderResponse response = toResponse(order);
         response.setGuestAccountCreated(guestAccountCreated);
 
-        // ─── EMAIL BİLDİRİMLERİ (async — API yanıtını bloklamaz) ───
         emailService.sendOrderCreated(response);
-
-        if (guestAccountCreated && guestPlainPassword != null && customerEmail != null) {
+        if (guestAccountCreated && guestPlainPassword != null && customerEmail != null)
             emailService.sendGuestWelcome(customerEmail, customerName, guestPlainPassword, order.getOrderNumber());
-        }
 
         return response;
+    }
+
+    // ─────────── COUPON ───────────
+
+    @Transactional
+    public CatalogOrderResponse applyCoupon(String orderNumber, String code) {
+        CatalogOrder order = orderRepo.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sipariş bulunamadı"));
+
+        if (order.getPaymentStatus() == CatalogPaymentStatus.PAID)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ödenmiş siparişe kupon uygulanamaz");
+
+        Coupon coupon = couponRepo.findByCodeIgnoreCase(code)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Kupon bulunamadı veya geçersiz"));
+
+        if (!Boolean.TRUE.equals(coupon.getActive()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Kupon aktif değil");
+
+        LocalDateTime now = LocalDateTime.now();
+        if (coupon.getStartDate() != null && now.isBefore(coupon.getStartDate()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Kupon henüz aktif değil");
+        if (coupon.getEndDate() != null && now.isAfter(coupon.getEndDate()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Kupon süresi dolmuş");
+        if (coupon.getMaxUsage() != null && coupon.getCurrentUsage() != null
+                && coupon.getCurrentUsage() >= coupon.getMaxUsage())
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Kupon kullanım limiti doldu");
+
+        BigDecimal subtotal = order.getSubtotalTl() != null
+                ? order.getSubtotalTl()
+                : (order.getTotalTl() != null ? order.getTotalTl() : BigDecimal.ZERO);
+
+        if (coupon.getMinOrderAmount() != null && subtotal.compareTo(coupon.getMinOrderAmount()) < 0)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Minimum sipariş tutarı ₺" + coupon.getMinOrderAmount().toPlainString());
+
+        // İndirim hesapla
+        BigDecimal discount = BigDecimal.ZERO;
+        CouponType type = coupon.getType();
+        if (type == CouponType.PERCENT && coupon.getDiscountPercent() != null) {
+            discount = subtotal.multiply(coupon.getDiscountPercent())
+                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+        } else if (type == CouponType.AMOUNT && coupon.getDiscountAmount() != null) {
+            discount = coupon.getDiscountAmount();
+        } else if (type == CouponType.GIFT && coupon.getGiftAmount() != null) {
+            discount = coupon.getGiftAmount();
+        }
+
+        if (discount.compareTo(subtotal) > 0) discount = subtotal;
+        BigDecimal newTotal = subtotal.subtract(discount).max(BigDecimal.ZERO);
+
+        order.setSubtotalTl(subtotal);
+        order.setDiscountAmountTl(discount);
+        order.setCouponCode(coupon.getCode().toUpperCase());
+        order.setTotalTl(newTotal);
+        order = orderRepo.save(order);
+
+        // Kullanım sayısını artır
+        coupon.setCurrentUsage((coupon.getCurrentUsage() == null ? 0 : coupon.getCurrentUsage()) + 1);
+        couponRepo.save(coupon);
+
+        log.info("Kupon uygulandı: {} → sipariş {} — indirim ₺{}", coupon.getCode(), orderNumber, discount);
+        return toResponse(order);
+    }
+
+    @Transactional
+    public CatalogOrderResponse removeCoupon(String orderNumber) {
+        CatalogOrder order = orderRepo.findByOrderNumber(orderNumber)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sipariş bulunamadı"));
+
+        if (order.getPaymentStatus() == CatalogPaymentStatus.PAID)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ödenmiş siparişten kupon kaldırılamaz");
+
+        if (order.getCouponCode() == null)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Siparişte kupon yok");
+
+        // Kullanım sayısını geri al
+        couponRepo.findByCodeIgnoreCase(order.getCouponCode()).ifPresent(c -> {
+            if (c.getCurrentUsage() != null && c.getCurrentUsage() > 0)
+                c.setCurrentUsage(c.getCurrentUsage() - 1);
+            couponRepo.save(c);
+        });
+
+        BigDecimal original = order.getSubtotalTl() != null ? order.getSubtotalTl() : order.getTotalTl();
+        order.setTotalTl(original);
+        order.setDiscountAmountTl(BigDecimal.ZERO);
+        order.setCouponCode(null);
+        order = orderRepo.save(order);
+
+        return toResponse(order);
     }
 
     // ─────────── READ ───────────
@@ -263,7 +326,6 @@ public class CatalogOrderService {
         return orders.stream().map(this::toResponse).toList();
     }
 
-    /** Giriş yapmış kullanıcının kendi siparişleri */
     @Transactional(readOnly = true)
     public List<CatalogOrderResponse> listByUser(UUID userId) {
         return orderRepo.findByUserIdOrderByCreatedAtDesc(userId)
@@ -283,30 +345,20 @@ public class CatalogOrderService {
         order.setStatus(status);
         order = orderRepo.save(order);
         CatalogOrderResponse response = toResponse(order);
-
-        // ─── DURUM GÜNCELLEME EMAİLİ ───
         emailService.sendStatusUpdate(response, newStatus);
-
         return response;
     }
 
-    /**
-     * Kargo bilgisi kaydet + müşteriye kargo bildirimi gönder.
-     * Admin panelinden çağrılır.
-     */
     @Transactional
     public CatalogOrderResponse markShipped(UUID id, String trackingNumber, String cargoCompany) {
         CatalogOrder order = orderRepo.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Sipariş bulunamadı"));
-
         order.setTrackingNumber(trackingNumber);
         order.setCargoCompany(cargoCompany);
         order.setStatus(CatalogOrderStatus.SHIPPED);
         order = orderRepo.save(order);
-
         CatalogOrderResponse response = toResponse(order);
         emailService.sendShipped(response, trackingNumber, cargoCompany);
-
         return response;
     }
 
@@ -314,9 +366,8 @@ public class CatalogOrderService {
 
     private static String generateRandomPassword() {
         StringBuilder sb = new StringBuilder(10);
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 10; i++)
             sb.append(PASSWORD_CHARS[RAND.nextInt(PASSWORD_CHARS.length)]);
-        }
         return sb.toString();
     }
 
@@ -325,7 +376,6 @@ public class CatalogOrderService {
     }
 
     private BigDecimal getCurrentKur() {
-        // TODO: Settings entegrasyonu
         return new BigDecimal("45");
     }
 
@@ -373,6 +423,9 @@ public class CatalogOrderService {
                 .district(o.getDistrict())
                 .notes(o.getNotes())
                 .subtotalUsd(o.getSubtotalUsd())
+                .subtotalTl(o.getSubtotalTl())
+                .discountAmountTl(o.getDiscountAmountTl())
+                .couponCode(o.getCouponCode())
                 .totalTl(o.getTotalTl())
                 .usdKurAtOrder(o.getUsdKurAtOrder())
                 .status(o.getStatus().name())
@@ -388,9 +441,8 @@ public class CatalogOrderService {
 
     private static String required(Map<String,Object> body, String key, String errMsg) {
         Object v = body.get(key);
-        if (v == null || v.toString().trim().isEmpty()) {
+        if (v == null || v.toString().trim().isEmpty())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errMsg);
-        }
         return v.toString().trim();
     }
 

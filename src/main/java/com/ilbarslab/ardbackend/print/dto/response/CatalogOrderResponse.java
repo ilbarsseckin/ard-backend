@@ -15,7 +15,6 @@ import java.util.UUID;
 public class CatalogOrderResponse {
     private UUID id;
     private String orderNumber;
-
     private String customerName;
     private String customerPhone;
     private String customerEmail;
@@ -23,24 +22,20 @@ public class CatalogOrderResponse {
     private String city;
     private String district;
     private String notes;
-
     private BigDecimal subtotalUsd;
+    private BigDecimal subtotalTl;
+    private BigDecimal discountAmountTl;
+    private String couponCode;
     private BigDecimal totalTl;
     private BigDecimal usdKurAtOrder;
-
-    private String status;          // CatalogOrderStatus
-    private String paymentStatus;   // CatalogPaymentStatus
-
+    private String status;
+    private String paymentStatus;
     private UUID userId;
-
     private List<CatalogOrderItemResponse> items;
-
     private Instant createdAt;
     private Instant updatedAt;
-
     @Builder.Default
     private Boolean guestAccountCreated = false;
-
     private String trackingNumber;
     private String cargoCompany;
 }

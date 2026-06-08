@@ -19,38 +19,47 @@ public class CatalogOrderController {
     private final CatalogOrderService service;
     private final UserRepository userRepository;
 
-    /**
-     * Public katalog sipariş oluşturma.
-     * Kullanıcı login ise userId atanır, değilse anonim.
-     */
     @PostMapping
     public ResponseEntity<?> create(
             @RequestBody Map<String, Object> body,
             @AuthenticationPrincipal UserDetails userDetails) {
         UUID userId = extractUserId(userDetails);
         return ResponseEntity.ok(Map.of(
-            "data", service.create(body, userId),
-            "message", "Siparişiniz alındı"
+                "data", service.create(body, userId),
+                "message", "Siparişiniz alındı"
         ));
     }
 
-    /** Giriş yapmış kullanıcının kendi siparişleri */
     @GetMapping("/my")
     public ResponseEntity<?> myOrders(@AuthenticationPrincipal UserDetails userDetails) {
-        if (userDetails == null) {
+        if (userDetails == null)
             return ResponseEntity.status(401).body(Map.of("message", "Giriş yapmanız gerekiyor"));
-        }
         UUID userId = extractUserId(userDetails);
-        if (userId == null) {
+        if (userId == null)
             return ResponseEntity.status(401).body(Map.of("message", "Kullanıcı bulunamadı"));
-        }
         return ResponseEntity.ok(Map.of("data", service.listByUser(userId)));
     }
 
-    /** Sipariş numarası ile takip (public — herhangi biri görebilir kendi numarasıyla) */
     @GetMapping("/track/{orderNumber}")
     public ResponseEntity<?> trackByNumber(@PathVariable String orderNumber) {
         return ResponseEntity.ok(Map.of("data", service.getByNumber(orderNumber)));
+    }
+
+    /** Kuponu siparişe uygula */
+    @PostMapping("/track/{orderNumber}/apply-coupon")
+    public ResponseEntity<?> applyCoupon(
+            @PathVariable String orderNumber,
+            @RequestBody Map<String, String> body) {
+        String code = body.get("code");
+        if (code == null || code.isBlank())
+            return ResponseEntity.badRequest().body(Map.of("message", "Kupon kodu boş"));
+        return ResponseEntity.ok(Map.of("data", service.applyCoupon(orderNumber, code.trim())));
+    }
+
+    /** Kuponu siparişten kaldır */
+    @DeleteMapping("/track/{orderNumber}/coupon")
+    public ResponseEntity<?> removeCoupon(@PathVariable String orderNumber) {
+        return ResponseEntity.ok(Map.of("data", service.removeCoupon(orderNumber)));
     }
 
     private UUID extractUserId(UserDetails userDetails) {
