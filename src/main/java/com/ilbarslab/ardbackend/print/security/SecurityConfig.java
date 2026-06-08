@@ -70,6 +70,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/hero-slides", "/api/hero-slides/**").permitAll()
 .requestMatchers(HttpMethod.GET, "/api/campaigns/**").permitAll()
 .requestMatchers(HttpMethod.GET, "/api/campaigns").permitAll()
+
+                                .requestMatchers(HttpMethod.GET, "/api/announcement-bars").permitAll()
+                                .requestMatchers(HttpMethod.GET, "/api/announcement-bars/**").permitAll()
                         .requestMatchers("/api/catalog/pre-order-files/**").permitAll()
 
                         .requestMatchers(HttpMethod.GET, "/api/coupons/welcome").permitAll()
