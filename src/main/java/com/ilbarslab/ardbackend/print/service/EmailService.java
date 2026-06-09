@@ -263,4 +263,63 @@ public class EmailService {
             };
         }
     }
+
+    // ─────────────────────────────────────────────────
+    // 6. ADMİN — YENİ SİPARİŞ BİLDİRİMİ
+    // ─────────────────────────────────────────────────
+
+    @Async
+    public void sendAdminNewOrder(String adminEmail, CatalogOrderResponse order, String frontendUrlParam) {
+        try {
+            Context ctx = buildBaseContext();
+            ctx.setVariable("orderNumber",   order.getOrderNumber());
+            ctx.setVariable("customerName",  order.getCustomerName());
+            ctx.setVariable("customerPhone", order.getCustomerPhone());
+            ctx.setVariable("customerEmail", order.getCustomerEmail());
+            ctx.setVariable("address",       order.getCustomerAddress());
+            ctx.setVariable("city",          order.getCity());
+            ctx.setVariable("notes",         order.getNotes());
+            ctx.setVariable("totalTl",       formatTl(order.getTotalTl()));
+            ctx.setVariable("items",         order.getItems() != null ? order.getItems() : List.of());
+            ctx.setVariable("orderDate",     formatDate(order.getCreatedAt()));
+            ctx.setVariable("adminUrl",      frontendUrlParam + "/admin/siparisler");
+
+            String html = templateEngine.process("email/admin-new-order", ctx);
+            send(adminEmail, "\uD83D\uDD14 Yeni Sipariş: " + order.getOrderNumber(), html);
+        } catch (Exception e) {
+            log.error("Admin yeni sipariş emaili gönderilemedi: {}", e.getMessage(), e);
+        }
+    }
+
+    // ─────────────────────────────────────────────────
+    // 7. GECİKME UYARISI — MÜŞTERİYE
+    // ─────────────────────────────────────────────────
+
+    @Async
+    public void sendDelayAlert(CatalogOrderResponse order, int daysPassed) {
+        if (order.getCustomerEmail() == null || order.getCustomerEmail().isBlank()) return;
+        try {
+            String delayMessage = String.format(
+                "Siparişiniz %d iş günüdür işlemde olup tarafınıza henüz ulaşmamıştır. " +
+                "Bu gecikme için özür diler, en kısa sürede teslim etmeye çalışacağımızı bildiririz.",
+                daysPassed
+            );
+
+            Context ctx = buildBaseContext();
+            ctx.setVariable("customerName", firstName(order.getCustomerName()));
+            ctx.setVariable("orderNumber",  order.getOrderNumber());
+            ctx.setVariable("totalTl",      formatTl(order.getTotalTl()));
+            ctx.setVariable("trackUrl",     frontendUrl + "/siparis/" + order.getOrderNumber());
+            ctx.setVariable("orderDate",    formatDate(order.getCreatedAt()));
+            ctx.setVariable("daysPassed",   daysPassed);
+            ctx.setVariable("delayMessage", delayMessage);
+
+            String html = templateEngine.process("email/delay-alert", ctx);
+            send(order.getCustomerEmail(), "\u23F0 Siparişiniz hakkında bilgi — " + order.getOrderNumber(), html);
+        } catch (Exception e) {
+            log.error("Gecikme emaili gönderilemedi ({}): {}", order.getOrderNumber(), e.getMessage(), e);
+        }
+    }
+
+
 }

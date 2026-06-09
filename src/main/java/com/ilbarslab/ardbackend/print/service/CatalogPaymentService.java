@@ -11,6 +11,7 @@ import com.ilbarslab.ardbackend.print.entity.catalog.entity.CatalogOrder;
 import com.ilbarslab.ardbackend.print.entity.catalog.entity.CatalogOrderItem;
 import com.ilbarslab.ardbackend.print.entity.catalog.entity.CatalogPaymentStatus;
 import com.ilbarslab.ardbackend.print.entity.catalog.repository.CatalogOrderRepository;
+import com.ilbarslab.ardbackend.print.service.AdminNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,7 +30,10 @@ import java.util.List;
 public class CatalogPaymentService {
 
     private final CatalogOrderRepository orderRepository;
-    private final CouponService couponService;  // ✨ YENİ
+    private final CouponService couponService;
+    private final EmailService emailService;
+    private final AdminNotificationService adminNotification;
+    private final CatalogOrderService catalogOrderService;
 
     @Value("${iyzico.api-key}")
     private String apiKey;
@@ -205,6 +209,14 @@ public class CatalogPaymentService {
 
             if ("success".equalsIgnoreCase(threedsPayment.getStatus())) {
                 order.setPaymentStatus(CatalogPaymentStatus.PAID);
+            // Ödeme emaili + admin SMS
+            try {
+                var orderResponse = catalogOrderService.getById(order.getId());
+                emailService.sendPaymentSuccess(orderResponse);
+                adminNotification.notifyPaymentReceived(orderResponse);
+            } catch (Exception ex) {
+                log.warn("Ödeme bildirimi gönderilemedi: {}", ex.getMessage());
+            }
                 order.setIyzicoPaymentId(paymentId);
                 order.setIyzicoConversationData(conversationData);
                 orderRepository.save(order);

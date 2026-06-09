@@ -8,6 +8,7 @@ import com.ilbarslab.ardbackend.print.entity.catalog.repository.*;
 import com.ilbarslab.ardbackend.print.entity.coupon.entity.Coupon;
 import com.ilbarslab.ardbackend.print.entity.coupon.entity.CouponType;
 import com.ilbarslab.ardbackend.print.entity.coupon.repository.CouponRepository;
+import com.ilbarslab.ardbackend.print.service.AdminNotificationService;
 import com.ilbarslab.ardbackend.print.entity.enums.Role;
 import com.ilbarslab.ardbackend.print.repository.CatalogProductRepository;
 import com.ilbarslab.ardbackend.print.repository.UserRepository;
@@ -42,6 +43,7 @@ public class CatalogOrderService {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final CouponRepository couponRepo;
+    private final AdminNotificationService adminNotification;
 
     private static final char[] PASSWORD_CHARS =
             "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789".toCharArray();
@@ -199,6 +201,7 @@ public class CatalogOrderService {
         response.setGuestAccountCreated(guestAccountCreated);
 
         emailService.sendOrderCreated(response);
+        adminNotification.notifyNewOrder(response);
         if (guestAccountCreated && guestPlainPassword != null && customerEmail != null)
             emailService.sendGuestWelcome(customerEmail, customerName, guestPlainPassword, order.getOrderNumber());
 
